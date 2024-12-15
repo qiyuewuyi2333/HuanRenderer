@@ -5,6 +5,7 @@ namespace huan_renderer
 {
 struct WindowCreateInfo
 {
+    std::string title = "[default name]";
     int width = 1080;
     int height = 720;
     bool fullscreen = false;
@@ -12,7 +13,7 @@ struct WindowCreateInfo
 struct ApplicationCreateInfo
 {
     std::string app_name = "[default name]";
-    WindowCreateInfo window_info;
+    WindowCreateInfo window_create_info;
 };
 
 } // namespace huan_renderer

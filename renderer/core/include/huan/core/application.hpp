@@ -1,43 +1,37 @@
 #pragma once
 
+#include "GLFW/glfw3.h"
 #include "huan/core/config.hpp"
-#include "huan/window/window.hpp"
-#include <cassert>
-#include <string>
+#include "huan/core/create_info.hpp"
+#include <type_traits>
+
 namespace huan_renderer
 {
 
-class Application
+class HUAN_API Application
 {
   public:
-    Application(const ApplicationCreateInfo& create_info);
+    Application(ApplicationCreateInfo& create_info);
     HUAN_NO_COPY(Application)
     HUAN_NO_MOVE(Application)
     ~Application();
 
-    inline static void create_instance(const ApplicationCreateInfo& create_info)
-    {
-        if (!instance)
-        {
-            instance = new Application(create_info);
-        }
-    }
-    inline static Application* get_instance()
-    {
-        return instance;
-    }
+    static Application* get_instance();
 
+    virtual void init(ApplicationCreateInfo& create_info);
     virtual void run();
 
-  private:
-    virtual void init();
+    virtual void init_window(WindowCreateInfo& window_create_info);
+    virtual void init_vulkan();
     virtual void shutdown();
-    virtual void processInput();
-    virtual void update();
-    inline static Application* instance = nullptr;
 
-  private:
-    ApplicationCreateInfo createInfo;
-    Scope<Window> m_window;
+  public:
+    static Application* instance;
+
+  protected:
+    ApplicationCreateInfo m_create_info;
+    GLFWwindow* m_window_handle;
 };
+void create_instance(ApplicationCreateInfo& app_create_info);
+
 } // namespace huan_renderer
