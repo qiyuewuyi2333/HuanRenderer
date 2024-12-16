@@ -1,9 +1,9 @@
 #pragma once
 
+#define GLFW_INCLUDE_VULKAN
 #include "GLFW/glfw3.h"
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
-#include <type_traits>
 
 namespace huan_renderer
 {
@@ -18,18 +18,25 @@ class HUAN_API Application
 
     static Application* get_instance();
 
-    virtual void init(ApplicationCreateInfo& create_info);
     virtual void run();
 
-    virtual void init_window(WindowCreateInfo& window_create_info);
-    virtual void init_vulkan();
     virtual void shutdown();
+
+    std::vector<const char*> get_required_extensions();
 
   public:
     static Application* instance;
+    void init(ApplicationCreateInfo& create_info);
+    void init_window(WindowCreateInfo& window_create_info);
+    void init_vulkan();
+    void init_vk_instance();
+    void init_vk_debug_messenger();
+    void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT& create_info);
 
   protected:
-    ApplicationCreateInfo m_create_info;
+    ApplicationCreateInfo m_app_info;
+    VkInstance m_vk_instance;
+    VkDebugUtilsMessengerEXT m_debug_messenger;
     GLFWwindow* m_window_handle;
 };
 void create_instance(ApplicationCreateInfo& app_create_info);

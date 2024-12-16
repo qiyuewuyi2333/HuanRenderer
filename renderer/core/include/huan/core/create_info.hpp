@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include <vector>
 
 namespace huan_renderer
 {
@@ -14,6 +15,11 @@ struct ApplicationCreateInfo
 {
     std::string app_name = "[default name]";
     WindowCreateInfo window_create_info;
+#ifdef HUAN_DEBUG_MODE
+    const bool enable_validation_layers = true;
+#else
+    const bool enable_validation_layers = false;
+#endif
 };
-
+const std::vector<const char*> validation_layers = {"VK_LAYER_KHRONOS_validation"};
 } // namespace huan_renderer
