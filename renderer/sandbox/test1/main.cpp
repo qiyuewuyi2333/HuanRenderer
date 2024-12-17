@@ -26,8 +26,9 @@ int main(int argc, char* argv[])
     huan_renderer::ApplicationCreateInfo app_create_info;
     huan_renderer::create_instance(app_create_info);
 
-    huan_renderer::Application::get_instance()->init(app_create_info);
-    huan_renderer::Application::get_instance()->run();
-    huan_renderer::Application::get_instance()->shutdown();
+    huan_renderer::Application::get_instance().init(app_create_info);
+    huan_renderer::Application::get_instance().run();
+    huan_renderer::Application::get_instance().shutdown();
+
     return 0;
 }

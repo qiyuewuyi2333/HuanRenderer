@@ -4,6 +4,7 @@
 #include "GLFW/glfw3.h"
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
+#include <huan/core/renderer.hpp>
 
 namespace huan_renderer
 {
@@ -14,29 +15,26 @@ class HUAN_API Application
     Application(ApplicationCreateInfo& create_info);
     HUAN_NO_COPY(Application)
     HUAN_NO_MOVE(Application)
-    ~Application();
+    ~Application() = default;
 
-    static Application* get_instance();
+    static Application& get_instance();
+    inline const ApplicationCreateInfo& get_app_info()
+    {
+        return m_app_info;
+    }
 
     virtual void run();
 
     virtual void shutdown();
 
-    std::vector<const char*> get_required_extensions();
-
   public:
     static Application* instance;
     void init(ApplicationCreateInfo& create_info);
     void init_window(WindowCreateInfo& window_create_info);
-    void init_vulkan();
-    void init_vk_instance();
-    void init_vk_debug_messenger();
-    void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT& create_info);
 
   protected:
     ApplicationCreateInfo m_app_info;
-    VkInstance m_vk_instance;
-    VkDebugUtilsMessengerEXT m_debug_messenger;
+    Scope<Renderer> m_renderer;
     GLFWwindow* m_window_handle;
 };
 void create_instance(ApplicationCreateInfo& app_create_info);

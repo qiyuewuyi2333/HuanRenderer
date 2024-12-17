@@ -366,4 +366,5 @@ FodyWeavers.xsd
 .idea
 .clangd
 CMakePresets.json
+out/
 
