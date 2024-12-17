@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace huan_renderer
 {
@@ -22,4 +23,5 @@ struct ApplicationCreateInfo
 #endif
 };
 const std::vector<const char*> validation_layers = {"VK_LAYER_KHRONOS_validation"};
+const std::vector<const char*> device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 } // namespace huan_renderer

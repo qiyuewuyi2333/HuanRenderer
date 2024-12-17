@@ -2,6 +2,8 @@
 #include "huan/core/application.hpp"
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
+#include "huan/platform/vulkan/vulkan_device.hpp"
+#include "huan/platform/vulkan/vulkan_surface.hpp"
 #include <cstdint>
 #include <set>
 #include <string>
@@ -54,7 +56,10 @@ void VulkanContext::init_vulkan()
     // Initialization code here
     init_vk_instance();
     init_vk_debug_messenger();
+    m_surface.init();
     m_device.init();
+    m_swapchain.init();
+    m_swapchain.setup_image_views();
 }
 
 void VulkanContext::init_vk_instance()
@@ -146,9 +151,20 @@ VkInstance& VulkanContext::get_vk_instance()
 {
     return m_vk_instance;
 }
+VulkanDevice& VulkanContext::get_vk_device()
+{
+    return m_device;
+}
+VulkanSurface& VulkanContext::get_vk_surface()
+{
+    return m_surface;
+}
 void VulkanContext::shutdown()
 {
-    m_device.shutdown();
+    m_swapchain.cleanup_image_views();
+    m_swapchain.cleanup();
+    m_device.cleanup();
+    m_surface.cleanup();
     if (m_app_info->enable_validation_layers)
     {
         DestroyDebugUtilsMessengerEXT(m_vk_instance, m_debug_messenger, nullptr);

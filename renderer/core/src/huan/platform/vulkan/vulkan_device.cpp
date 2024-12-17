@@ -1,16 +1,14 @@
 #include "huan/platform/vulkan/vulkan_device.hpp"
 #include "huan/core/application.hpp"
 #include "huan/platform/vulkan/vulkan_context.hpp"
+#include <cstdint>
 #include <set>
 #include <stdexcept>
 #include <vector>
+#include <vulkan/vulkan_core.h>
 
 namespace huan_renderer
 {
-
-VulkanDevice::VulkanDevice()
-{
-}
 
 void VulkanDevice::init()
 {
@@ -40,10 +38,10 @@ void VulkanDevice::init()
     {
         throw std::runtime_error("Failed to find a suitable GPU!");
     }
-    QueueFamilyIndices indices = find_queue_families(m_physical_device);
+    m_indices = find_queue_families(m_physical_device);
 
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
-    std::set<uint32_t> unique_queue_families = {indices.graphics_family.value()};
+    std::set<uint32_t> unique_queue_families = {m_indices.graphics_family.value(), m_indices.present_family.value()};
 
     float queue_priority = 1.0f;
     for (uint32_t queue_family : unique_queue_families)
@@ -63,8 +61,8 @@ void VulkanDevice::init()
     device_create_info.pQueueCreateInfos = queue_create_infos.data();
     device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
     device_create_info.pEnabledFeatures = &device_features;
-    // device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
-    // device_create_info.ppEnabledExtensionNames = device_extensions.data();
+    device_create_info.enabledExtensionCount = static_cast<uint32_t>(device_extensions.size());
+    device_create_info.ppEnabledExtensionNames = device_extensions.data();
 
     if (Application::get_instance().get_app_info().enable_validation_layers)
     {
@@ -81,9 +79,10 @@ void VulkanDevice::init()
         throw std::runtime_error("Failed to create logical device!");
     }
 
-    vkGetDeviceQueue(m_device, indices.graphics_family.value(), 0, &m_graphics_queue);
+    vkGetDeviceQueue(m_device, m_indices.graphics_family.value(), 0, &m_graphics_queue);
+    vkGetDeviceQueue(m_device, m_indices.present_family.value(), 0, &m_present_queue);
 }
-void VulkanDevice::shutdown()
+void VulkanDevice::cleanup()
 {
     if (m_device != VK_NULL_HANDLE)
     {
@@ -92,7 +91,26 @@ void VulkanDevice::shutdown()
     }
 }
 
-bool is_device_suitable(VkPhysicalDevice device)
+bool VulkanDevice::check_device_extension_support(VkPhysicalDevice device)
+{
+    uint32_t extension_count;
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, nullptr);
+
+    std::vector<VkExtensionProperties> available_extensions(extension_count);
+    vkEnumerateDeviceExtensionProperties(device, nullptr, &extension_count, available_extensions.data());
+
+    std::set<std::string> required_extensions(device_extensions.begin(), device_extensions.end());
+
+    for (const auto& extension : available_extensions)
+    {
+        required_extensions.erase(extension.extensionName);
+        if (required_extensions.empty())
+            break;
+    }
+
+    return required_extensions.empty();
+}
+bool VulkanDevice::is_device_suitable(VkPhysicalDevice device)
 {
     VkPhysicalDeviceProperties device_properties;
     vkGetPhysicalDeviceProperties(device, &device_properties);
@@ -103,11 +121,11 @@ bool is_device_suitable(VkPhysicalDevice device)
     bool is_suitable =
         device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && device_features.geometryShader;
     QueueFamilyIndices indices = find_queue_families(device);
-    is_suitable &= indices.is_complete();
+    bool extensions_supported = check_device_extension_support(device);
 
-    return is_suitable;
+    return is_suitable && indices.is_complete() && extensions_supported;
 }
-QueueFamilyIndices find_queue_families(VkPhysicalDevice device)
+QueueFamilyIndices VulkanDevice::find_queue_families(VkPhysicalDevice device)
 {
     QueueFamilyIndices indices;
     // Assign index to queue families that could be found
@@ -126,12 +144,13 @@ QueueFamilyIndices find_queue_families(VkPhysicalDevice device)
         }
 
         VkBool32 present_support = false;
-        // vkGetPhysicalDeviceSurfaceSupportKHR(device, i, m_surface, &present_support);
-        //
-        // if (present_support)
-        // {
-        //     indices.present_family = i;
-        // }
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, VulkanContext::get_instance().get_vk_surface().m_surface,
+                                             &present_support);
+
+        if (present_support)
+        {
+            indices.present_family = i;
+        }
 
         if (indices.is_complete())
         {

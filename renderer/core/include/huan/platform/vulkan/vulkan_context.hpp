@@ -1,9 +1,10 @@
 #pragma once
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
-#include "huan/core/renderer_context.hpp"
 #include "huan/platform/vulkan/vulkan_device.hpp"
-#include <optional>
+#include "huan/platform/vulkan/vulkan_surface.hpp"
+#include "huan/platform/vulkan/vulkan_surface.hpp"
+#include "huan/platform/vulkan/vulkan_swapchain.hpp"
 #include <vulkan/vulkan_core.h>
 
 struct GLFWwindow;
@@ -23,6 +24,8 @@ class VulkanContext
     virtual void init();
     virtual void shutdown();
     VkInstance& get_vk_instance();
+    VulkanDevice& get_vk_device();
+    VulkanSurface& get_vk_surface();
 
   private:
     void init_vulkan();
@@ -38,6 +41,8 @@ class VulkanContext
     VkDebugUtilsMessengerEXT m_debug_messenger = VK_NULL_HANDLE;
     VkPhysicalDevice m_physical_device = VK_NULL_HANDLE;
     VulkanDevice m_device;
+    VulkanSurface m_surface;
+    VulkanSwapChain m_swapchain;
 
     Ref<ApplicationCreateInfo> m_app_info;
 };

@@ -22,6 +22,10 @@ class HUAN_API Application
     {
         return m_app_info;
     }
+    inline GLFWwindow* get_window_handle()
+    {
+        return m_window_handle;
+    }
 
     virtual void run();
 
