@@ -28,7 +28,7 @@ class VulkanSwapChain
     VkPresentModeKHR choose_swap_present_mode(const std::vector<VkPresentModeKHR>& available_present_modes);
     VkExtent2D choose_swap_extent(const VkSurfaceCapabilitiesKHR& capabilities);
 
-  private:
+  public:
     VkSwapchainKHR m_swap_chain;
     std::vector<VkImage> m_images;
     std::vector<VkImageView> m_image_views;

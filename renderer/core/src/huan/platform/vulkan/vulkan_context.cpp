@@ -60,6 +60,8 @@ void VulkanContext::init_vulkan()
     m_device.init();
     m_swapchain.init();
     m_swapchain.setup_image_views();
+    m_render_pass.init();
+    m_pipeline.init();
 }
 
 void VulkanContext::init_vk_instance()
@@ -159,8 +161,20 @@ VulkanSurface& VulkanContext::get_vk_surface()
 {
     return m_surface;
 }
-void VulkanContext::shutdown()
+
+VulkanSwapChain& VulkanContext::get_vk_swapchain()
 {
+    return m_swapchain;
+}
+VulkanRenderPass& VulkanContext::get_vk_render_pass()
+{
+    return m_render_pass;
+}
+void VulkanContext::cleanup()
+{
+    m_pipeline.cleanup();
+    m_render_pass.cleanup();
+
     m_swapchain.cleanup_image_views();
     m_swapchain.cleanup();
     m_device.cleanup();

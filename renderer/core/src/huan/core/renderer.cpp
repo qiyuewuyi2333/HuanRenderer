@@ -12,7 +12,7 @@ void Renderer::init()
 }
 void Renderer::shutdown()
 {
-    m_context->shutdown();
+    m_context->cleanup();
 }
 
 } // namespace huan_renderer

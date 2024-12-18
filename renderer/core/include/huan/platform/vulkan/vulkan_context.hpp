@@ -2,6 +2,8 @@
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
 #include "huan/platform/vulkan/vulkan_device.hpp"
+#include "huan/platform/vulkan/vulkan_pipeline.hpp"
+#include "huan/platform/vulkan/vulkan_renderpass.hpp"
 #include "huan/platform/vulkan/vulkan_surface.hpp"
 #include "huan/platform/vulkan/vulkan_surface.hpp"
 #include "huan/platform/vulkan/vulkan_swapchain.hpp"
@@ -22,10 +24,12 @@ class VulkanContext
     static VulkanContext& get_instance();
 
     virtual void init();
-    virtual void shutdown();
+    virtual void cleanup();
     VkInstance& get_vk_instance();
     VulkanDevice& get_vk_device();
     VulkanSurface& get_vk_surface();
+    VulkanSwapChain& get_vk_swapchain();
+    VulkanRenderPass& get_vk_render_pass();
 
   private:
     void init_vulkan();
@@ -43,6 +47,9 @@ class VulkanContext
     VulkanDevice m_device;
     VulkanSurface m_surface;
     VulkanSwapChain m_swapchain;
+    VulkanRenderPass m_render_pass;
+
+    VulkanPipeline m_pipeline;
 
     Ref<ApplicationCreateInfo> m_app_info;
 };
