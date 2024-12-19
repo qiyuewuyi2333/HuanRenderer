@@ -18,15 +18,28 @@ void VulkanRenderPass::init()
                                              .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR};
     VkAttachmentReference color_attachment_ref{.attachment = 0, .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
 
-    VkSubpassDescription subpass{.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
-                                 .colorAttachmentCount = 1,
-                                 .pColorAttachments = &color_attachment_ref};
+    VkSubpassDescription subpass{
+        .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+        .colorAttachmentCount = 1,
+        .pColorAttachments = &color_attachment_ref,
+    };
+    VkSubpassDependency subpass_dependency{
+        .srcSubpass = VK_SUBPASS_EXTERNAL,
+        .dstSubpass = 0,
+        .srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        .srcAccessMask = 0,
+        .dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+
+    };
 
     VkRenderPassCreateInfo render_pass_info{.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
                                             .attachmentCount = 1,
                                             .pAttachments = &color_attachment,
                                             .subpassCount = 1,
-                                            .pSubpasses = &subpass};
+                                            .pSubpasses = &subpass,
+                                            .dependencyCount = 1,
+                                            .pDependencies = &subpass_dependency};
 
     if (vkCreateRenderPass(VulkanContext::get_instance().get_vk_device().m_device, &render_pass_info, nullptr,
                            &m_render_pass) != VK_SUCCESS)

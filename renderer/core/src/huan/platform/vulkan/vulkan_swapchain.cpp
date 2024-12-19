@@ -3,6 +3,7 @@
 #include "huan/platform/vulkan/vulkan_context.hpp"
 
 #include <algorithm>
+#include <iostream>
 #include <stdexcept>
 
 namespace huan_renderer
@@ -63,6 +64,7 @@ void VulkanSwapChain::init()
     }
 
     vkGetSwapchainImagesKHR(context.get_vk_device().m_device, m_swap_chain, &image_count, nullptr);
+    std::cout << "Number of swapchain images: " << image_count << std::endl;
     m_images.resize(image_count);
     vkGetSwapchainImagesKHR(context.get_vk_device().m_device, m_swap_chain, &image_count, m_images.data());
 }

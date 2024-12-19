@@ -11,6 +11,7 @@ class SandboxTest : public huan_renderer::Application
         std::cout << "SandboxTest is running" << std::endl;
         while (!glfwWindowShouldClose(m_window_handle))
         {
+            draw_frame();
             glfwPollEvents();
         }
     }

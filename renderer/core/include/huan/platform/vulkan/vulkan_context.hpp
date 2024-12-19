@@ -1,7 +1,10 @@
 #pragma once
 #include "huan/core/config.hpp"
 #include "huan/core/create_info.hpp"
+#include "huan/platform/vulkan/vulkan_command_buffer.hpp"
+#include "huan/platform/vulkan/vulkan_command_pool.hpp"
 #include "huan/platform/vulkan/vulkan_device.hpp"
+#include "huan/platform/vulkan/vulkan_framebuffer.hpp"
 #include "huan/platform/vulkan/vulkan_pipeline.hpp"
 #include "huan/platform/vulkan/vulkan_renderpass.hpp"
 #include "huan/platform/vulkan/vulkan_surface.hpp"
@@ -30,6 +33,10 @@ class VulkanContext
     VulkanSurface& get_vk_surface();
     VulkanSwapChain& get_vk_swapchain();
     VulkanRenderPass& get_vk_render_pass();
+    VulkanPipeline& get_vk_pipeline();
+    VulkanFramebufferSet& get_vk_frambuffers();
+    VulkanCommandPool& get_vk_command_pool();
+    VulkanCommandBuffer& get_vk_command_buffer();
 
   private:
     void init_vulkan();
@@ -48,8 +55,10 @@ class VulkanContext
     VulkanSurface m_surface;
     VulkanSwapChain m_swapchain;
     VulkanRenderPass m_render_pass;
-
     VulkanPipeline m_pipeline;
+    VulkanFramebufferSet m_framebuffer_set;
+    VulkanCommandPool m_command_pool;
+    VulkanCommandBuffer m_command_buffer;
 
     Ref<ApplicationCreateInfo> m_app_info;
 };

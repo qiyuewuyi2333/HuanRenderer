@@ -31,6 +31,8 @@ class HUAN_API Application
 
     virtual void shutdown();
 
+    virtual void draw_frame();
+
   public:
     static Application* instance;
     void init(ApplicationCreateInfo& create_info);

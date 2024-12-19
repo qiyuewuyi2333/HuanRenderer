@@ -20,7 +20,7 @@ class VulkanPipeline
     VkShaderModule create_shader_module(const std::vector<char>& code);
     static std::vector<char> read_file(const std::string& filename);
 
-  private:
+  public:
     VkPipelineLayout m_pipeline_layout = VK_NULL_HANDLE;
     VkPipeline m_graphics_pipeline = VK_NULL_HANDLE;
 };

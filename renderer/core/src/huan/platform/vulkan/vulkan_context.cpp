@@ -62,6 +62,9 @@ void VulkanContext::init_vulkan()
     m_swapchain.setup_image_views();
     m_render_pass.init();
     m_pipeline.init();
+    m_framebuffer_set.init();
+    m_command_pool.init();
+    m_command_buffer.init();
 }
 
 void VulkanContext::init_vk_instance()
@@ -170,8 +173,26 @@ VulkanRenderPass& VulkanContext::get_vk_render_pass()
 {
     return m_render_pass;
 }
+VulkanCommandPool& VulkanContext::get_vk_command_pool()
+{
+    return m_command_pool;
+}
+VulkanFramebufferSet& VulkanContext::get_vk_frambuffers()
+{
+    return m_framebuffer_set;
+}
+VulkanPipeline& VulkanContext::get_vk_pipeline()
+{
+    return m_pipeline;
+}
+VulkanCommandBuffer& VulkanContext::get_vk_command_buffer()
+{
+    return m_command_buffer;
+}
 void VulkanContext::cleanup()
 {
+    m_command_pool.cleanup();
+    m_framebuffer_set.cleanup();
     m_pipeline.cleanup();
     m_render_pass.cleanup();
 

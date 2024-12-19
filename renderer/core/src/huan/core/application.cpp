@@ -46,6 +46,7 @@ void Application::run()
     // Main application loop code here
     while (!glfwWindowShouldClose(m_window_handle))
     {
+        draw_frame();
         glfwPollEvents();
     }
 }
@@ -55,6 +56,22 @@ void Application::shutdown()
 
     glfwDestroyWindow(m_window_handle);
     glfwTerminate();
+}
+void Application::draw_frame()
+{
+    /*
+     * 1. Wait for the previous frame to finish
+     * 2. Acquire an image from the **swap chain**
+     * 3. Record a command buffer which draws the scene onto that image
+     * 4. Submit the recorded command buffer
+     * 5. Present the swap chain image
+     *
+     */
+    /*
+     * Semaphore : When GPU wants to know something finished
+     * Fence     : When CPU
+     */
+    m_renderer->draw();
 }
 
 Application& Application::get_instance()
