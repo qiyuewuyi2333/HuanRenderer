@@ -13,11 +13,12 @@ void VulkanPipeline::init()
 
     VkShaderModule vertex_shader_module = create_shader_module(vert_shader_code);
     VkShaderModule fragment_shader_module = create_shader_module(frag_shader_code);
-    VkPipelineShaderStageCreateInfo vert_stage_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
-                                                    .stage = VK_SHADER_STAGE_VERTEX_BIT,
-                                                    .module = vertex_shader_module,
-                                                    .pName = "main",
-                                                    .pSpecializationInfo = nullptr};
+    VkPipelineShaderStageCreateInfo vert_stage_info{
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+        .stage = VK_SHADER_STAGE_VERTEX_BIT,
+        .module = vertex_shader_module,
+        .pName = "main",
+    };
     VkPipelineShaderStageCreateInfo frag_stage_info{.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
                                                     .stage = VK_SHADER_STAGE_FRAGMENT_BIT,
                                                     .module = fragment_shader_module,
@@ -35,9 +36,7 @@ void VulkanPipeline::init()
     VkPipelineViewportStateCreateInfo viewport_state_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
         .viewportCount = 1,
-        .pViewports = nullptr, // Dynamic state
         .scissorCount = 1,
-        .pScissors = nullptr // Dynamic state
     };
 
     VkPipelineRasterizationStateCreateInfo rasterizer_info = {
@@ -63,8 +62,10 @@ void VulkanPipeline::init()
     VkPipelineColorBlendStateCreateInfo color_blending_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
         .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
         .attachmentCount = 1,
-        .pAttachments = &color_blend_attachment};
+        .pAttachments = &color_blend_attachment,
+        .blendConstants = {0.0f, 0.0f, 0.0f, 0.0f}};
     std::vector<VkDynamicState> dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
     VkPipelineDynamicStateCreateInfo dynamic_state_info = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
@@ -80,22 +81,23 @@ void VulkanPipeline::init()
         throw std::runtime_error("Failed to create pipeline layout!");
     }
 
-    VkGraphicsPipelineCreateInfo pipeline_info = {.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
-                                                  .stageCount = 2,
-                                                  .pStages = shader_stages,
-                                                  .pVertexInputState = &vertex_input_info,
-                                                  .pInputAssemblyState = &input_assembly_info,
-                                                  .pViewportState = &viewport_state_info,
-                                                  .pRasterizationState = &rasterizer_info,
-                                                  .pMultisampleState = &multisampling_info,
-                                                  .pColorBlendState = &color_blending_info,
-                                                  .pDynamicState = &dynamic_state_info,
-                                                  .layout = m_pipeline_layout,
-                                                  .renderPass =
-                                                      VulkanContext::get_instance().get_vk_render_pass().m_render_pass,
-                                                  .subpass = 0,
-                                                  .basePipelineHandle = VK_NULL_HANDLE,
-                                                  .basePipelineIndex = -1};
+    VkGraphicsPipelineCreateInfo pipeline_info = {
+        .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+        .stageCount = 2,
+        .pStages = shader_stages,
+        .pVertexInputState = &vertex_input_info,
+        .pInputAssemblyState = &input_assembly_info,
+        .pViewportState = &viewport_state_info,
+        .pRasterizationState = &rasterizer_info,
+        .pMultisampleState = &multisampling_info,
+        .pColorBlendState = &color_blending_info,
+        .pDynamicState = &dynamic_state_info,
+        .layout = m_pipeline_layout,
+        .renderPass = VulkanContext::get_instance().get_vk_render_pass().m_render_pass,
+        .subpass = 0,
+        // NOTE:
+        .basePipelineHandle = VK_NULL_HANDLE,
+    };
 
     if (vkCreateGraphicsPipelines(VulkanContext::get_instance().get_vk_device().m_device, VK_NULL_HANDLE, 1,
                                   &pipeline_info, nullptr, &m_graphics_pipeline) != VK_SUCCESS)

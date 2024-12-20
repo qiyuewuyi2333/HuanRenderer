@@ -9,7 +9,7 @@ namespace huan_renderer
 class VulkanFramebuffer
 {
   public:
-    void init();
+    void init(uint32_t view_index);
     void cleanup();
 
   public:

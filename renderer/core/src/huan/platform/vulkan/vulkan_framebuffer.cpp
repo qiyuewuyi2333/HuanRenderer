@@ -1,16 +1,17 @@
 #include "huan/platform/vulkan/vulkan_framebuffer.hpp"
 #include "huan/platform/vulkan/vulkan_context.hpp"
 #include "huan/platform/vulkan/vulkan_swapchain.hpp"
+#include <cstdint>
 #include <stdexcept>
 #include <vulkan/vulkan_core.h>
 
 namespace huan_renderer
 {
 
-void VulkanFramebuffer::init()
+void VulkanFramebuffer::init(uint32_t view_index)
 {
     VulkanSwapChain& swap_chain = VulkanContext::get_instance().get_vk_swapchain();
-    VkImageView attachments[] = {swap_chain.m_image_views[0]};
+    VkImageView attachments[] = {swap_chain.m_image_views[view_index]};
     VkFramebufferCreateInfo framebuffer_info{};
     framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
     framebuffer_info.renderPass = VulkanContext::get_instance().get_vk_render_pass().m_render_pass;
@@ -38,9 +39,9 @@ void VulkanFramebuffer::cleanup()
 void VulkanFramebufferSet::init()
 {
     m_framebuffers.resize(VulkanContext::get_instance().get_vk_swapchain().m_image_views.size());
-    for (auto& framebuffer : m_framebuffers)
+    for (int i = 0; i < m_framebuffers.size(); ++i)
     {
-        framebuffer.init();
+        m_framebuffers[i].init(i);
     }
 }
 

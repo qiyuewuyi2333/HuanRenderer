@@ -47,8 +47,6 @@ void VulkanSwapChain::init()
     else
     {
         create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.queueFamilyIndexCount = 0;     // Optional
-        create_info.pQueueFamilyIndices = nullptr; // Optional
     }
 
     create_info.preTransform = swap_chain_support.capabilities.currentTransform;

@@ -105,8 +105,6 @@ void Renderer::draw()
     {
         throw std::runtime_error("Failed to present swap chain image!");
     }
-
-    std::cout << "Image index: " << image_index << ", Present result: " << result << std::endl;
 }
 
 } // namespace huan_renderer
