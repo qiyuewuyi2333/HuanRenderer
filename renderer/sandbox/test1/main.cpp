@@ -14,6 +14,7 @@ class SandboxTest : public huan_renderer::Application
             draw_frame();
             glfwPollEvents();
         }
+        wait();
     }
 };
 void huan_renderer::create_instance(ApplicationCreateInfo& app_create_info)

@@ -65,6 +65,7 @@ void VulkanContext::init_vulkan()
     m_framebuffer_set.init();
     m_command_pool.init();
     m_command_buffer.init();
+    create_sync_objects();
 }
 
 void VulkanContext::init_vk_instance()
@@ -189,8 +190,19 @@ VulkanCommandBuffer& VulkanContext::get_vk_command_buffer()
 {
     return m_command_buffer;
 }
+Ref<ApplicationCreateInfo> VulkanContext::get_app_info()
+{
+    return m_app_info;
+}
 void VulkanContext::cleanup()
 {
+    for (int i = 0; i < m_app_info->max_frames_in_flight; ++i)
+    {
+        vkDestroySemaphore(m_device.m_device, m_image_available_semaphores[i], nullptr);
+        vkDestroySemaphore(m_device.m_device, m_render_finished_semaphores[i], nullptr);
+        vkDestroyFence(m_device.m_device, m_in_flight_fences[i], nullptr);
+    }
+    m_command_buffer.cleanup();
     m_command_pool.cleanup();
     m_framebuffer_set.cleanup();
     m_pipeline.cleanup();
@@ -232,6 +244,35 @@ bool check_validation_layer_support()
         }
     }
     return true;
+}
+void VulkanContext::create_sync_objects()
+{
+    uint32_t frame_count = m_app_info->max_frames_in_flight;
+    m_image_available_semaphores.resize(frame_count);
+    m_render_finished_semaphores.resize(frame_count);
+    m_in_flight_fences.resize(frame_count);
+
+    VkSemaphoreCreateInfo semaphore_info{.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO};
+    VkFenceCreateInfo fence_info{.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT};
+
+    for (int i = 0; i < frame_count; ++i)
+    {
+        if (vkCreateSemaphore(get_vk_device().m_device, &semaphore_info, nullptr, &m_image_available_semaphores[i]) !=
+            VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create image available semaphore!");
+        }
+
+        if (vkCreateSemaphore(get_vk_device().m_device, &semaphore_info, nullptr, &m_render_finished_semaphores[i]) !=
+            VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create render finished semaphore!");
+        }
+        if (vkCreateFence(get_vk_device().m_device, &fence_info, nullptr, &m_in_flight_fences[i]) != VK_SUCCESS)
+        {
+            throw std::runtime_error("Failed to create in-flight fence!");
+        }
+    }
 }
 std::vector<const char*> VulkanContext::get_required_extensions()
 {

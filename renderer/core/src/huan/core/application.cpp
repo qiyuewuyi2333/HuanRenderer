@@ -1,3 +1,4 @@
+#include <cstdint>
 #include <iostream>
 #include <ostream>
 #include <vulkan/vulkan_core.h>
@@ -49,6 +50,7 @@ void Application::run()
         draw_frame();
         glfwPollEvents();
     }
+    wait();
 }
 void Application::shutdown()
 {
@@ -74,6 +76,10 @@ void Application::draw_frame()
     m_renderer->draw();
 }
 
+void Application::wait()
+{
+    m_renderer->wait_idle();
+}
 Application& Application::get_instance()
 {
     return *instance;

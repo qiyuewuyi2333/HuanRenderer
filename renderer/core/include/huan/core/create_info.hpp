@@ -21,6 +21,7 @@ struct ApplicationCreateInfo
 #else
     const bool enable_validation_layers = false;
 #endif
+    const int max_frames_in_flight = 2;
 };
 const std::vector<const char*> validation_layers = {"VK_LAYER_KHRONOS_validation"};
 const std::vector<const char*> device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};

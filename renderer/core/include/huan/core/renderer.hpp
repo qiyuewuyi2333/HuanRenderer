@@ -1,4 +1,6 @@
+#include "huan/platform/vulkan/vulkan_api.hpp"
 #include "huan/platform/vulkan/vulkan_context.hpp"
+#include <cstdint>
 #include <vulkan/vulkan_core.h>
 namespace huan_renderer
 {
@@ -15,15 +17,11 @@ class Renderer
     virtual void init();
     virtual void shutdown();
     virtual void draw();
-
-  private:
-    void create_sync_objects();
+    virtual void wait_idle();
 
   private:
     VulkanContext* m_context;
-    VkSemaphore m_image_available_semaphore;
-    VkSemaphore m_render_finished_semaphore;
-    VkFence m_in_flight_fence;
+    Scope<VulkanAPI> m_render_api;
 };
 
 } // namespace huan_renderer

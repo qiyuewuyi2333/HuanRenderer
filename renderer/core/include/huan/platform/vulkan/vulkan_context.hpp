@@ -10,6 +10,7 @@
 #include "huan/platform/vulkan/vulkan_surface.hpp"
 #include "huan/platform/vulkan/vulkan_surface.hpp"
 #include "huan/platform/vulkan/vulkan_swapchain.hpp"
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
 struct GLFWwindow;
@@ -37,6 +38,20 @@ class VulkanContext
     VulkanFramebufferSet& get_vk_frambuffers();
     VulkanCommandPool& get_vk_command_pool();
     VulkanCommandBuffer& get_vk_command_buffer();
+    Ref<ApplicationCreateInfo> get_app_info();
+
+    inline std::vector<VkSemaphore>& get_image_available_semaphores()
+    {
+        return m_image_available_semaphores;
+    }
+    inline std::vector<VkSemaphore>& get_render_finished_semaphores()
+    {
+        return m_render_finished_semaphores;
+    }
+    inline std::vector<VkFence>& get_in_flight_fences()
+    {
+        return m_in_flight_fences;
+    }
 
   private:
     void init_vulkan();
@@ -44,6 +59,7 @@ class VulkanContext
     void init_vk_debug_messenger();
     void populate_debug_messenger_create_info(VkDebugUtilsMessengerCreateInfoEXT& create_info);
     std::vector<const char*> get_required_extensions();
+    void create_sync_objects();
 
   private:
     static Scope<VulkanContext> m_instance;
@@ -59,6 +75,10 @@ class VulkanContext
     VulkanFramebufferSet m_framebuffer_set;
     VulkanCommandPool m_command_pool;
     VulkanCommandBuffer m_command_buffer;
+
+    std::vector<VkSemaphore> m_image_available_semaphores;
+    std::vector<VkSemaphore> m_render_finished_semaphores;
+    std::vector<VkFence> m_in_flight_fences;
 
     Ref<ApplicationCreateInfo> m_app_info;
 };

@@ -32,6 +32,7 @@ class HUAN_API Application
     virtual void shutdown();
 
     virtual void draw_frame();
+    virtual void wait();
 
   public:
     static Application* instance;
@@ -42,6 +43,7 @@ class HUAN_API Application
     ApplicationCreateInfo m_app_info;
     Scope<Renderer> m_renderer;
     GLFWwindow* m_window_handle;
+    uint32_t m_current_frame = 0;
 };
 void create_instance(ApplicationCreateInfo& app_create_info);
 
