@@ -13,9 +13,15 @@
 
 
 struct GLFWwindow;
-
 namespace huan
 {
+struct VulkanFrameData
+{
+    vk::CommandBuffer m_commandBuffer;
+    vk::Fence m_fence;
+    vk::Semaphore m_imageAvailableSemaphore;
+    vk::Semaphore m_renderFinishedSemaphore;
+};
     class HUAN_API HelloTriangleApplication
     {
     public:
@@ -45,6 +51,8 @@ namespace huan
         void createCommandPool();
         void createCommandBuffer();
         void createSynchronization();
+        void createFrameData();
+        
         void initVulkan();
         std::vector<const char*> getRequiredInstanceExtensions();
         std::vector<const char*> getRequiredDeviceExtensions();
@@ -103,12 +111,9 @@ namespace huan
         std::vector<vk::Framebuffer> m_swapchainFramebuffers;
 
         vk::CommandPool m_commandPool;
-        vk::CommandBuffer m_commandBuffer;
 
-        vk::Semaphore m_imageAvailableSemaphore;
-        vk::Semaphore m_renderFinishedSemaphore;
-        vk::Fence m_inFlightFence;
-        
+        std::vector<VulkanFrameData> m_frameDatas;
+        uint32_t m_currentFrame = 0;
 
         bool initialized = false;
     };

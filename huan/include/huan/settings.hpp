@@ -14,6 +14,7 @@ namespace huan
         uint32_t width = 800;
         uint32_t height = 600;
         bool isVulkanValidationEnabled = true;
+        int maxFramesInFlight = 2;
     };
 
    HUAN_API extern  AppSettings globalAppSettings;

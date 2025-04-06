@@ -113,9 +113,11 @@ namespace huan
         commandBufferAllocateInfo.setCommandPool(m_commandPool)
                                  .setLevel(vk::CommandBufferLevel::ePrimary)
                                  .setCommandBufferCount(1);
-        m_commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
-        if (!m_commandBuffer)
-            HUAN_CORE_ERROR("Failed to create command buffer");
+        for(size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
+        {
+            m_frameDatas[i].m_commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
+        }
+        
         HUAN_CORE_INFO("Created command buffer");
     }
 
@@ -125,13 +127,21 @@ namespace huan
         vk::FenceCreateInfo fenceCreateInfo;
         fenceCreateInfo.setFlags(vk::FenceCreateFlagBits::eSignaled);
 
-        m_imageAvailableSemaphore = device.createSemaphore(semaphoreCreateInfo);
-        m_renderFinishedSemaphore = device.createSemaphore(semaphoreCreateInfo);
-        m_inFlightFence = device.createFence(fenceCreateInfo);
-        if (!m_imageAvailableSemaphore || !m_renderFinishedSemaphore || !m_inFlightFence)
-            HUAN_CORE_ERROR("Failed to create synchronization");
+        for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
+        {
+            m_frameDatas[i].m_imageAvailableSemaphore = device.createSemaphore(semaphoreCreateInfo);
+            m_frameDatas[i].m_renderFinishedSemaphore = device.createSemaphore(semaphoreCreateInfo);
+            m_frameDatas[i].m_fence = device.createFence(fenceCreateInfo);
+        }
 
         HUAN_CORE_INFO("Created synchronization");
+    }
+
+    void HelloTriangleApplication::createFrameData()
+    {
+        m_frameDatas.resize(globalAppSettings.maxFramesInFlight);
+        createCommandBuffer();
+        createSynchronization();
     }
 
     std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
@@ -568,33 +578,38 @@ namespace huan
 
     void HelloTriangleApplication::drawFrame()
     {
-        auto resWaitFences = device.waitForFences(m_inFlightFence, true, UINT64_MAX);
+        auto& curInFlightFence = m_frameDatas[m_currentFrame].m_fence;
+        auto& curImageAvailableSemaphore = m_frameDatas[m_currentFrame].m_imageAvailableSemaphore;
+        auto& curRenderFinishedSemaphore = m_frameDatas[m_currentFrame].m_renderFinishedSemaphore;
+        auto& curCommandBuffer = m_frameDatas[m_currentFrame].m_commandBuffer;
+        
+        auto resWaitFences = device.waitForFences(curInFlightFence, true, UINT64_MAX);
         if (resWaitFences != vk::Result::eSuccess)
             HUAN_CORE_ERROR("Failed to wait for fences")
         
-        device.resetFences(m_inFlightFence);
+        device.resetFences(curInFlightFence);
 
         uint32_t imageIndex;
         auto resAcqNextImage = swapchain->acquireNextImage(UINT64_MAX,
-                                                           m_imageAvailableSemaphore, nullptr, imageIndex);
+                                                           curImageAvailableSemaphore, nullptr, imageIndex);
         if (resAcqNextImage != vk::Result::eSuccess)
             HUAN_CORE_ERROR("Failed to acquire next image")
 
-        m_commandBuffer.reset();
+        curCommandBuffer.reset();
 
-        recordCommandBuffer(m_commandBuffer, imageIndex);
+        recordCommandBuffer(curCommandBuffer, imageIndex);
 
         vk::SubmitInfo submitInfo;
-        vk::Semaphore waitSemaphores[] = {m_imageAvailableSemaphore};
+        vk::Semaphore waitSemaphores[] = {curImageAvailableSemaphore};
         vk::PipelineStageFlags waitStages[] = {vk::PipelineStageFlagBits::eColorAttachmentOutput};
 
         submitInfo.setWaitSemaphores(waitSemaphores);
         submitInfo.setWaitDstStageMask(waitStages);
-        submitInfo.setCommandBuffers(m_commandBuffer);
-        vk::Semaphore signalSemaphores[] = {m_renderFinishedSemaphore};
+        submitInfo.setCommandBuffers(curCommandBuffer);
+        vk::Semaphore signalSemaphores[] = {curRenderFinishedSemaphore};
         submitInfo.setSignalSemaphores(signalSemaphores);
 
-        if (graphicsQueue.submit(1, &submitInfo, m_inFlightFence) != vk::Result::eSuccess)
+        if (graphicsQueue.submit(1, &submitInfo, curInFlightFence) != vk::Result::eSuccess)
             HUAN_CORE_ERROR("Failed to submit draw command buffer")
 
         vk::PresentInfoKHR presentInfo;
@@ -605,7 +620,8 @@ namespace huan
         auto resPresent = presentQueue.presentKHR(presentInfo);
         if (resPresent != vk::Result::eSuccess)
             HUAN_CORE_ERROR("Failed to present image")
-        
+
+        m_currentFrame = (m_currentFrame + 1) % m_frameDatas.size();
     }
 
     void HelloTriangleApplication::queryQueueFamilyIndices()
@@ -648,10 +664,9 @@ namespace huan
         createFramebuffers();
 
         createCommandPool();
-        createCommandBuffer();
 
-        createSynchronization();
-
+        createFrameData();
+        
         HUAN_CORE_TRACE(R"(
 
     __  __                     ____                 __                   
@@ -708,12 +723,14 @@ namespace huan
     {
         HUAN_CORE_INFO("Cleaning up...\n\n")
         device.waitIdle();
-        
-        device.destroySemaphore(m_renderFinishedSemaphore);
-        device.destroySemaphore(m_imageAvailableSemaphore);
-        HUAN_CORE_INFO("Semaphores destroyed.")
-        device.destroyFence(m_inFlightFence);
-        HUAN_CORE_INFO("Fences destroyed.")
+
+        for(auto& frameData : m_frameDatas)
+        {
+            device.destroyFence(frameData.m_fence);
+            device.destroySemaphore(frameData.m_renderFinishedSemaphore);
+            device.destroySemaphore(frameData.m_imageAvailableSemaphore);
+        }
+        HUAN_CORE_INFO("Synchronizations destroyed.")
 
         device.destroyCommandPool(m_commandPool);
         HUAN_CORE_INFO("CommandPool destroyed.")

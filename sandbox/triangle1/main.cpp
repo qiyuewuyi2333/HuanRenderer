@@ -9,6 +9,7 @@ int main()
         .title = "Hello Triangle",
         .width = 800,
         .height = 600,
+        
     };
 
     huan::HelloTriangleApplication* app = huan::HelloTriangleApplication::getInstance();
