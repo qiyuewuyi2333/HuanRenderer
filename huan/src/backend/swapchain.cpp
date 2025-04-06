@@ -60,7 +60,7 @@ namespace huan
     }
 
     vk::Result Swapchain::acquireNextImage(uint64_t timeOut, vk::Semaphore imageAvailableSemaphore,
-        vk::Fence inFlightFence, uint32_t& imageIndex)
+                                           vk::Fence inFlightFence, uint32_t& imageIndex)
     {
         return m_device.acquireNextImageKHR(m_swapchain, timeOut, imageAvailableSemaphore, inFlightFence, &imageIndex);
     }
