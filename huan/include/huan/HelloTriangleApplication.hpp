@@ -13,15 +13,17 @@
 
 
 struct GLFWwindow;
+
 namespace huan
 {
-struct VulkanFrameData
-{
-    vk::CommandBuffer m_commandBuffer;
-    vk::Fence m_fence;
-    vk::Semaphore m_imageAvailableSemaphore;
-    vk::Semaphore m_renderFinishedSemaphore;
-};
+    struct VulkanFrameData
+    {
+        vk::CommandBuffer m_commandBuffer;
+        vk::Fence m_fence;
+        vk::Semaphore m_imageAvailableSemaphore;
+        vk::Semaphore m_renderFinishedSemaphore;
+    };
+
     class HUAN_API HelloTriangleApplication
     {
     public:
@@ -34,17 +36,21 @@ struct VulkanFrameData
             return instance;
         };
 
+
+
         void init();
+        void run();
+        void cleanup();
+        void mainLoop();
+        void drawFrame();
+
+        HelloTriangleApplication();
+        ~HelloTriangleApplication();
+
         [[nodiscard]] bool isInitialized() const
         {
             return initialized;
         }
-        void run();
-
-        void cleanup();
-        
-        HelloTriangleApplication();
-        ~HelloTriangleApplication();
     private:
         void initLogSystem();
         void initWindow();
@@ -52,7 +58,7 @@ struct VulkanFrameData
         void createCommandBuffer();
         void createSynchronization();
         void createFrameData();
-        
+
         void initVulkan();
         std::vector<const char*> getRequiredInstanceExtensions();
         std::vector<const char*> getRequiredDeviceExtensions();
@@ -69,10 +75,8 @@ struct VulkanFrameData
         void createRenderPass();
         void createFramebuffers();
 
-        void drawFrame();
-        void mainLoop();
         void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
-
+        void recreateSwapchain();
 
     public:
         struct QueueFamilyIndices
@@ -102,7 +106,7 @@ struct VulkanFrameData
 
         vk::SurfaceKHR surface;
         Scope<Swapchain> swapchain;
-        
+
         vk::PipelineLayout m_pipelineLayout;
         vk::Pipeline m_graphicsPipeline;
         vk::RenderPass m_renderPass;
@@ -116,6 +120,7 @@ struct VulkanFrameData
         uint32_t m_currentFrame = 0;
 
         bool initialized = false;
+        bool m_framebufferResized = false;
     };
 }
 

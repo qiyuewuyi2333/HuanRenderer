@@ -56,6 +56,12 @@ void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerE
     }
 }
 
+static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
+{
+    auto app = huan::HelloTriangleApplication::getInstance();
+    app->m_framebufferResized = true;
+}
+
 namespace huan
 {
     void HelloTriangleApplication::initLogSystem()
@@ -89,10 +95,12 @@ namespace huan
     {
         glfwInit();
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+        glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
         window = glfwCreateWindow(globalAppSettings.width, globalAppSettings.height, globalAppSettings.title,
                                   nullptr,
                                   nullptr);
+
+        glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
     }
 
     void HelloTriangleApplication::createCommandPool()
@@ -113,11 +121,11 @@ namespace huan
         commandBufferAllocateInfo.setCommandPool(m_commandPool)
                                  .setLevel(vk::CommandBufferLevel::ePrimary)
                                  .setCommandBufferCount(1);
-        for(size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
+        for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
         {
             m_frameDatas[i].m_commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
         }
-        
+
         HUAN_CORE_INFO("Created command buffer");
     }
 
@@ -558,17 +566,17 @@ namespace huan
     void HelloTriangleApplication::createFramebuffers()
     {
         m_swapchainFramebuffers.resize(swapchain->m_imageViews.size());
+        // Why I should use swapchain->m_imageViews[i], instead of m_image?
+        // Because the imageView essentially is a wrapper of the correspond image in the swapchain. (or a super set).
+        vk::FramebufferCreateInfo framebufferInfo;
+        framebufferInfo.setRenderPass(m_renderPass)
+                       .setAttachmentCount(1)
+                       .setWidth(swapchain->m_info.extent.width)
+                       .setHeight(swapchain->m_info.extent.height)
+                       .setLayers(1); // The number of layers of the imageView.
         for (size_t i = 0; i < swapchain->m_imageViews.size(); i++)
         {
-            // Why I should use swapchain->m_imageViews[i], instead of m_image?
-            // Because the imageView essentially is a wrapper of the correspond image in the swapchain. (or a super set).
-            vk::FramebufferCreateInfo framebufferInfo;
-            framebufferInfo.setRenderPass(m_renderPass)
-                           .setAttachmentCount(1)
-                           .setPAttachments(&swapchain->m_imageViews[i])
-                           .setWidth(swapchain->m_info.extent.width)
-                           .setHeight(swapchain->m_info.extent.height)
-                           .setLayers(1); // The number of layers of the imageView.
+            framebufferInfo.setPAttachments(&swapchain->m_imageViews[i]);
 
             m_swapchainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
             if (!m_swapchainFramebuffers[i])
@@ -582,19 +590,28 @@ namespace huan
         auto& curImageAvailableSemaphore = m_frameDatas[m_currentFrame].m_imageAvailableSemaphore;
         auto& curRenderFinishedSemaphore = m_frameDatas[m_currentFrame].m_renderFinishedSemaphore;
         auto& curCommandBuffer = m_frameDatas[m_currentFrame].m_commandBuffer;
-        
+
         auto resWaitFences = device.waitForFences(curInFlightFence, true, UINT64_MAX);
+
         if (resWaitFences != vk::Result::eSuccess)
             HUAN_CORE_ERROR("Failed to wait for fences")
-        
-        device.resetFences(curInFlightFence);
 
         uint32_t imageIndex;
         auto resAcqNextImage = swapchain->acquireNextImage(UINT64_MAX,
-                                                           curImageAvailableSemaphore, nullptr, imageIndex);
-        if (resAcqNextImage != vk::Result::eSuccess)
-            HUAN_CORE_ERROR("Failed to acquire next image")
+                                                           curImageAvailableSemaphore, VK_NULL_HANDLE, imageIndex);
+        if (resAcqNextImage == vk::Result::eErrorOutOfDateKHR || m_framebufferResized)
+        {
+            HUAN_CORE_WARN("Swapchain is out of date")
+            device.destroySemaphore(curImageAvailableSemaphore);
+            curImageAvailableSemaphore = device.createSemaphore({});
+            recreateSwapchain();
+            return;
+        }
+        if (resAcqNextImage != vk::Result::eSuccess && resAcqNextImage != vk::Result::eSuboptimalKHR)
+            HUAN_CORE_BREAK("Failed to acquire next image")
 
+        // Reset
+        device.resetFences(curInFlightFence);
         curCommandBuffer.reset();
 
         recordCommandBuffer(curCommandBuffer, imageIndex);
@@ -618,8 +635,14 @@ namespace huan
                    .setImageIndices(imageIndex);
 
         auto resPresent = presentQueue.presentKHR(presentInfo);
-        if (resPresent != vk::Result::eSuccess)
-            HUAN_CORE_ERROR("Failed to present image")
+        if (resPresent == vk::Result::eErrorOutOfDateKHR || resPresent == vk::Result::eSuboptimalKHR ||
+            m_framebufferResized)
+        {
+            HUAN_CORE_WARN("Swapchain is out of date")
+            recreateSwapchain();
+        }
+        else if (resPresent != vk::Result::eSuccess)
+            HUAN_CORE_BREAK("Failed to present image")
 
         m_currentFrame = (m_currentFrame + 1) % m_frameDatas.size();
     }
@@ -666,7 +689,7 @@ namespace huan
         createCommandPool();
 
         createFrameData();
-        
+
         HUAN_CORE_TRACE(R"(
 
     __  __                     ____                 __                   
@@ -676,7 +699,7 @@ namespace huan
 /_/ /_/\__,_/\__,_/_/ /_/  /_/ |_|\___/_/ /_/\__,_/\___/_/   \___/_/     
                                                                                
                                                                                )"
-                        );
+        );
     }
 
     void HelloTriangleApplication::mainLoop()
@@ -719,12 +742,38 @@ namespace huan
         commandBuffer.end();
     }
 
+    void HelloTriangleApplication::recreateSwapchain()
+    {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(window, &width, &height);
+        while (width == 0 || height == 0)
+        {
+            glfwGetFramebufferSize(window, &width, &height);
+            glfwWaitEvents();
+        }
+        device.waitIdle();
+        // TODO: Recreate renderpass
+        // It's necessary when you move the renderpass from a standard range to a high dynamic range monitor.
+
+        // Cleanup swapchain
+        for (auto& swapchainFramebuffer : m_swapchainFramebuffers)
+        {
+            device.destroyFramebuffer(swapchainFramebuffer);
+        }
+        swapchain.reset();
+
+        // Create
+        createSwapchain();
+        createFramebuffers();
+        m_framebufferResized = false;
+    }
+
     void HelloTriangleApplication::cleanup()
     {
         HUAN_CORE_INFO("Cleaning up...\n\n")
         device.waitIdle();
 
-        for(auto& frameData : m_frameDatas)
+        for (auto& frameData : m_frameDatas)
         {
             device.destroyFence(frameData.m_fence);
             device.destroySemaphore(frameData.m_renderFinishedSemaphore);
