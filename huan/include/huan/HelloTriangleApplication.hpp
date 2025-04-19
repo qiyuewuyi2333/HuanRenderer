@@ -10,119 +10,169 @@
 #include "huan/common.hpp"
 #include "vulkan/vulkan.hpp"
 #include <huan/backend/swapchain.hpp>
-
+#include <glm/glm.hpp>
 
 struct GLFWwindow;
 
 namespace huan
 {
-    struct VulkanFrameData
+struct VulkanBuffer;
+
+struct Vertex
+{
+    glm::vec2 m_pos;
+    glm::vec3 m_color;
+
+    static vk::VertexInputBindingDescription getBindingDescription()
     {
-        vk::CommandBuffer m_commandBuffer;
-        vk::Fence m_fence;
-        vk::Semaphore m_imageAvailableSemaphore;
-        vk::Semaphore m_renderFinishedSemaphore;
-    };
+        vk::VertexInputBindingDescription bindingDescription;
+        bindingDescription.setBinding(0).setStride(sizeof(Vertex)).setInputRate(vk::VertexInputRate::eVertex);
 
-    class HUAN_API HelloTriangleApplication
+        return bindingDescription;
+    }
+
+    static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions()
     {
-    public:
-        static HelloTriangleApplication* getInstance()
+        std::vector<vk::VertexInputAttributeDescription> attributeDescriptions(2);
+        attributeDescriptions[0].binding = 0;
+        attributeDescriptions[0].location = 0;
+        attributeDescriptions[0].format = vk::Format::eR32G32Sfloat;
+        attributeDescriptions[0].offset = offsetof(Vertex, m_pos);
+
+        attributeDescriptions[1].binding = 0;
+        attributeDescriptions[1].location = 1;
+        attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
+        attributeDescriptions[1].offset = offsetof(Vertex, m_color);
+
+        return attributeDescriptions;
+    }
+};
+
+struct VulkanFrameData
+{
+    vk::CommandBuffer m_commandBuffer;
+    vk::Fence m_fence;
+    vk::Semaphore m_imageAvailableSemaphore;
+    vk::Semaphore m_renderFinishedSemaphore;
+};
+
+
+class HUAN_API HelloTriangleApplication
+{
+public:
+    static HelloTriangleApplication* getInstance()
+    {
+        if (!instance)
         {
-            if (!instance)
-            {
-                instance = new HelloTriangleApplication();
-            }
-            return instance;
-        };
-
-
-
-        void init();
-        void run();
-        void cleanup();
-        void mainLoop();
-        void drawFrame();
-
-        HelloTriangleApplication();
-        ~HelloTriangleApplication();
-
-        [[nodiscard]] bool isInitialized() const
-        {
-            return initialized;
+            instance = new HelloTriangleApplication();
         }
-    private:
-        void initLogSystem();
-        void initWindow();
-        void createCommandPool();
-        void createCommandBuffer();
-        void createSynchronization();
-        void createFrameData();
-
-        void initVulkan();
-        std::vector<const char*> getRequiredInstanceExtensions();
-        std::vector<const char*> getRequiredDeviceExtensions();
-        void createInstance();
-        void createDebugMessenger();
-        void pickPhysicalDevice();
-        void queryQueueFamilyIndices();
-        void createDevice();
-        void getQueues();
-
-        void createSurface();
-        void createSwapchain();
-        void createGraphicsPipeline();
-        void createRenderPass();
-        void createFramebuffers();
-
-        void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
-        void recreateSwapchain();
-
-    public:
-        struct QueueFamilyIndices
-        {
-            std::optional<uint32_t> graphicsFamily;
-            std::optional<uint32_t> presentFamily;
-            std::optional<uint32_t> computeFamily;
-            std::optional<uint32_t> transferFamily;
-
-            bool isComplete() const
-            {
-                return graphicsFamily.has_value() && presentFamily.has_value();
-            }
-        };
-
-    INNER_VISIBLE:
-        inline static HelloTriangleApplication* instance = nullptr;
-        GLFWwindow* window = nullptr;
-        vk::Instance vkInstance;
-        vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
-        vk::DebugUtilsMessengerEXT debugMessenger;
-        vk::PhysicalDevice physicalDevice;
-        vk::Device device;
-        QueueFamilyIndices queueFamilyIndices;
-        vk::Queue graphicsQueue;
-        vk::Queue presentQueue;
-
-        vk::SurfaceKHR surface;
-        Scope<Swapchain> swapchain;
-
-        vk::PipelineLayout m_pipelineLayout;
-        vk::Pipeline m_graphicsPipeline;
-        vk::RenderPass m_renderPass;
-
-        // 画架们
-        std::vector<vk::Framebuffer> m_swapchainFramebuffers;
-
-        vk::CommandPool m_commandPool;
-
-        std::vector<VulkanFrameData> m_frameDatas;
-        uint32_t m_currentFrame = 0;
-
-        bool initialized = false;
-        bool m_framebufferResized = false;
+        return instance;
     };
-}
 
+    void init();
+    void run();
+    void cleanup();
+    void mainLoop();
+    void drawFrame();
 
-#endif //HELLOTRIANGLEAPPLICATION_HPP
+    HelloTriangleApplication();
+    ~HelloTriangleApplication();
+
+    [[nodiscard]] bool isInitialized() const
+    {
+        return initialized;
+    }
+
+private:
+    void initLogSystem();
+    void initWindow();
+
+    void initVulkan();
+    std::vector<const char*> getRequiredInstanceExtensions();
+    std::vector<const char*> getRequiredDeviceExtensions();
+    void createInstance();
+    void createDebugMessenger();
+    void pickPhysicalDevice();
+    void queryQueueFamilyIndices();
+    void createDevice();
+    void getQueues();
+
+    void createSurface();
+    void createSwapchain();
+    void createGraphicsPipeline();
+    void createRenderPass();
+    void createFramebuffers();
+
+    void createCommandPool();
+    void createCommandBuffer(); // Using in createFrameData()
+    void createSynchronization();
+    void createFrameData();
+    void createVertexBufferAndMemory();
+    void createIndexBufferAndMemory();
+
+    void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
+    void recreateSwapchain();
+
+public:
+    struct QueueFamilyIndices
+    {
+        std::optional<uint32_t> graphicsFamily;
+        std::optional<uint32_t> presentFamily;
+        std::optional<uint32_t> transferFamily;
+        std::optional<uint32_t> computeFamily;
+
+        bool isComplete() const
+        {
+            return graphicsFamily.has_value() && presentFamily.has_value() && transferFamily.has_value();
+        }
+    };
+
+    // clang-format off
+  INNER_VISIBLE:
+    inline static HelloTriangleApplication* instance = nullptr;
+    GLFWwindow* window = nullptr;
+    vk::Instance vkInstance;
+    vk::DebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+    vk::DebugUtilsMessengerEXT debugMessenger;
+    vk::PhysicalDevice physicalDevice;
+    vk::Device device;
+    QueueFamilyIndices queueFamilyIndices;
+    vk::Queue graphicsQueue;
+    vk::Queue presentQueue;
+    vk::Queue transferQueue;
+
+    vk::SurfaceKHR surface;
+    Scope<Swapchain> swapchain;
+
+    vk::PipelineLayout m_pipelineLayout;
+    vk::Pipeline m_graphicsPipeline;
+    vk::RenderPass m_renderPass;
+
+    // 画架们
+    std::vector<vk::Framebuffer> m_swapchainFramebuffers;
+
+    vk::CommandPool m_commandPool;
+    vk::CommandPool m_transferCommandPool;
+
+    std::vector<VulkanFrameData> m_frameDatas;
+    uint32_t m_currentFrame = 0;
+
+    Scope<VulkanBuffer> m_vertexBuffer;
+    Scope<VulkanBuffer> m_indexBuffer;
+    
+    bool initialized = false;
+    bool m_framebufferResized = false;
+
+    // 顶点数据
+    const std::vector<Vertex> m_vertices = {
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    };
+
+    const std::vector<uint32_t> m_indices = {0, 1, 2, 2, 3, 0};
+};
+} // namespace huan
+
+#endif // HELLOTRIANGLEAPPLICATION_HPP

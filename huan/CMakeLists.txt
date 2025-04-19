@@ -17,7 +17,9 @@ add_library(${PROJECT_NAME} SHARED
         src/utils/file_load.cpp
         include/huan/utils/file_load.hpp
         src/backend/shader.cpp
-        include/huan/backend/shader.hpp)
+        include/huan/backend/shader.hpp
+        include/huan/backend/vulkan_buffer.hpp
+        src/backend/vulkan_buffer.cpp)
 
 if(${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)
