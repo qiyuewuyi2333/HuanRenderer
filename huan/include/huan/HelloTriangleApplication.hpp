@@ -54,6 +54,16 @@ struct VulkanFrameData
     vk::Fence m_fence;
     vk::Semaphore m_imageAvailableSemaphore;
     vk::Semaphore m_renderFinishedSemaphore;
+
+    Scope<VulkanBuffer> m_uniformBuffer;
+    vk::DescriptorSet m_descriptorSet;
+};
+
+struct UniformBufferObject
+{
+    alignas(16) glm::mat4 m_model;
+    alignas(16) glm::mat4 m_view;
+    alignas(16) glm::mat4 m_proj;
 };
 
 
@@ -73,6 +83,7 @@ public:
     void run();
     void cleanup();
     void mainLoop();
+    void updateUniformBuffer();
     void drawFrame();
 
     HelloTriangleApplication();
@@ -99,16 +110,23 @@ private:
 
     void createSurface();
     void createSwapchain();
+    void createDescriptorPool();
+    void createDescriptorSets();
     void createGraphicsPipeline();
+    void createDescriptorSetLayout();
     void createRenderPass();
     void createFramebuffers();
 
-    void createCommandPool();
-    void createCommandBuffer(); // Using in createFrameData()
-    void createSynchronization();
-    void createFrameData();
+    void createTextureImage();
     void createVertexBufferAndMemory();
     void createIndexBufferAndMemory();
+    void createCommandPool();
+    
+    void createCommandBuffer(); // Using in createFrameData()
+    void createSynchronization();
+    void createUniformBuffers();        
+    void createFrameData();
+    
 
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapchain();
@@ -145,6 +163,8 @@ public:
     Scope<Swapchain> swapchain;
 
     vk::PipelineLayout m_pipelineLayout;
+    vk::DescriptorSetLayout m_descriptorSetLayout;
+    vk::DescriptorPool m_descriptorPool;
     vk::Pipeline m_graphicsPipeline;
     vk::RenderPass m_renderPass;
 

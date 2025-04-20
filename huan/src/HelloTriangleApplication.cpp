@@ -5,6 +5,7 @@
 #include "huan/HelloTriangleApplication.hpp"
 
 #include <set>
+#include <chrono>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
@@ -13,6 +14,7 @@
 #include "huan/backend/vulkan_buffer.hpp"
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_load.hpp"
+#include "glm/gtc/matrix_transform.hpp"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -155,6 +157,8 @@ void HelloTriangleApplication::createFrameData()
     m_frameDatas.resize(globalAppSettings.maxFramesInFlight);
     createCommandBuffer();
     createSynchronization();
+    createUniformBuffers();
+    createDescriptorSets();
 }
 
 /**
@@ -164,42 +168,37 @@ void HelloTriangleApplication::createVertexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
-    Scope<VulkanBuffer> stagingBuffer = VulkanBuffer::create(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                                                             vk::MemoryPropertyFlagBits::eHostVisible |
-                                                             vk::MemoryPropertyFlagBits::eHostCoherent);
     m_vertexBuffer = VulkanBuffer::create(bufferSize,
                                           vk::BufferUsageFlagBits::eVertexBuffer |
                                           vk::BufferUsageFlagBits::eTransferDst,
-                                          vk::MemoryPropertyFlagBits::eDeviceLocal);
-
-    void* data = device.mapMemory(stagingBuffer->m_memory, 0, bufferSize);
-    memcpy(data, m_vertices.data(), bufferSize);
-    device.unmapMemory(stagingBuffer->m_memory);
-
-    m_vertexBuffer->copyFrom(stagingBuffer->m_buffer, bufferSize);
-
-    stagingBuffer.reset();
+                                          vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_vertices.data()));
 }
 
 void HelloTriangleApplication::createIndexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(uint32_t) * m_indices.size();
 
-    Scope<VulkanBuffer> stagingBuffer = VulkanBuffer::create(bufferSize, vk::BufferUsageFlagBits::eTransferSrc,
-                                                             vk::MemoryPropertyFlagBits::eHostVisible |
-                                                             vk::MemoryPropertyFlagBits::eHostCoherent);
     m_indexBuffer = VulkanBuffer::create(bufferSize,
                                          vk::BufferUsageFlagBits::eIndexBuffer |
                                          vk::BufferUsageFlagBits::eTransferDst,
-                                         vk::MemoryPropertyFlagBits::eDeviceLocal);
+                                         vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_indices.data()));
+}
 
-    void* data = device.mapMemory(stagingBuffer->m_memory, 0, bufferSize);
-    memcpy(data, m_indices.data(), bufferSize);
-    device.unmapMemory(stagingBuffer->m_memory);
+/**
+ * Create uniform buffer for per frames.
+ * Because vulkan can render in parallel, so we need to do that.
+ */
+void HelloTriangleApplication::createUniformBuffers()
+{
+    vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
-    m_indexBuffer->copyFrom(stagingBuffer->m_buffer, bufferSize);
+    for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
+    {
+        m_frameDatas[i].m_uniformBuffer = VulkanBuffer::create(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+                                                               vk::MemoryPropertyFlagBits::eHostVisible |
+                                                               vk::MemoryPropertyFlagBits::eHostCoherent, nullptr);
+    }
 
-    stagingBuffer.reset();
 }
 
 std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
@@ -430,12 +429,62 @@ void HelloTriangleApplication::createSwapchain()
     swapchain = Swapchain::create(globalAppSettings.width, globalAppSettings.height);
 }
 
+void HelloTriangleApplication::createDescriptorPool()
+{
+    vk::DescriptorPoolCreateInfo poolCreateInfo;
+    std::vector<vk::DescriptorPoolSize> poolSizes = {
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight)
+    };
+
+    poolCreateInfo.setPoolSizes(poolSizes)
+                  .setMaxSets(globalAppSettings.maxFramesInFlight);
+
+    m_descriptorPool = device.createDescriptorPool(poolCreateInfo);
+    if (!m_descriptorPool)
+        HUAN_CORE_BREAK("Failed to create descriptor pool")
+
+    HUAN_CORE_INFO("DescriptorSet pool created! ")
+}
+
+void HelloTriangleApplication::createDescriptorSets()
+{
+    std::vector<vk::DescriptorSetLayout> layouts(globalAppSettings.maxFramesInFlight, m_descriptorSetLayout);
+
+    vk::DescriptorSetAllocateInfo allocateInfo;
+    allocateInfo.setDescriptorPool(m_descriptorPool)
+                .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
+                .setSetLayouts(layouts);
+
+    auto sets = device.allocateDescriptorSets(allocateInfo);
+    for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
+    {
+        m_frameDatas[i].m_descriptorSet = sets[i];
+        vk::DescriptorBufferInfo bufferInfo; // 定义 描述符绑定的 资源信息 buffer or image
+        bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->m_buffer)
+                  .setOffset(0)
+                  .setRange(sizeof(UniformBufferObject));
+
+        vk::WriteDescriptorSet writeInfo;
+        writeInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
+                 .setDstBinding(0)
+                 .setDstArrayElement(0)
+                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                 .setDescriptorCount(1)
+                 .setBufferInfo(bufferInfo);
+
+        device.updateDescriptorSets(writeInfo, nullptr);
+    }
+
+    HUAN_CORE_INFO("DescriptorSet in frameData created and configured! ")
+}
+
 void HelloTriangleApplication::createGraphicsPipeline()
 {
     HUAN_CORE_INFO("Creating graphics pipeline...")
     // Shaders
-    auto vertexShader = utils::loadFile("../../../../assets/VertexBuffer/SimpleTriangle.vert.spv");
-    auto fragShader = utils::loadFile("../../../../assets/VertexBuffer/SimpleTriangle.frag.spv");
+    auto vertexShader = utils::loadFile("../../../../assets/UniformBuffer/shader.vert.spv");
+    auto fragShader = utils::loadFile("../../../../assets/UniformBuffer/shader.frag.spv");
 
     auto vertexShaderModule = Shader::createShaderModule(vertexShader);
     auto fragShaderModule = Shader::createShaderModule(fragShader);
@@ -473,7 +522,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
                   .setRasterizerDiscardEnable(false)
                   .setPolygonMode(vk::PolygonMode::eFill)
                   .setCullMode(vk::CullModeFlagBits::eBack)
-                  .setFrontFace(vk::FrontFace::eClockwise)
+                  .setFrontFace(vk::FrontFace::eCounterClockwise)
                   .setDepthBiasEnable(false)
                   .setLineWidth(1.0f);
 
@@ -522,10 +571,9 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     // Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-    pipelineLayoutInfo.setSetLayoutCount(0)
-                      .setPushConstantRangeCount(0)
-                      .setPushConstantRanges(nullptr)
-                      .setPushConstantRangeCount(0);
+    pipelineLayoutInfo.setSetLayouts(m_descriptorSetLayout) // 指定 描述符集
+                      .setPushConstantRanges(nullptr);
+
     m_pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
     if (!m_pipelineLayout)
         HUAN_CORE_BREAK("Failed to create pipeline layout")
@@ -556,6 +604,26 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     device.destroyShaderModule(vertexShaderModule);
     device.destroyShaderModule(fragShaderModule);
+}
+
+/**
+ * Descriptor is a way to let shader access resources in buffers freely.
+ */
+void HelloTriangleApplication::createDescriptorSetLayout()
+{
+    vk::DescriptorSetLayoutBinding uboLayoutBinding;
+    uboLayoutBinding.setBinding(0)
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
+                    .setPImmutableSamplers(nullptr);
+
+    vk::DescriptorSetLayoutCreateInfo layoutInfo;
+    layoutInfo.setBindingCount(1).setPBindings(&uboLayoutBinding);
+
+    m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
+    if (!m_descriptorSetLayout)
+        HUAN_CORE_BREAK("Failed to create descriptor set layout")
 }
 
 /**
@@ -603,11 +671,10 @@ void HelloTriangleApplication::createRenderPass()
                      .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite);
 
     vk::RenderPassCreateInfo renderPassInfo;
-    renderPassInfo.setAttachmentCount(1)
-                  .setPAttachments(&colorAttachment)
-                  .setSubpassCount(1)
-                  .setPSubpasses(&subpass)
+    renderPassInfo.setAttachments(colorAttachment)
+                  .setSubpasses(subpass)
                   .setDependencies(subpassDependency);
+
     m_renderPass = device.createRenderPass(renderPassInfo);
     if (!m_renderPass)
         HUAN_CORE_BREAK("Failed to create render pass.")
@@ -632,6 +699,11 @@ void HelloTriangleApplication::createFramebuffers()
         if (!m_swapchainFramebuffers[i])
             HUAN_CORE_BREAK("Failed to create framebuffer")
     }
+}
+
+void HelloTriangleApplication::createTextureImage()
+{
+
 }
 
 void HelloTriangleApplication::drawFrame()
@@ -665,6 +737,8 @@ void HelloTriangleApplication::drawFrame()
     curCommandBuffer.reset();
 
     recordCommandBuffer(curCommandBuffer, imageIndex);
+
+    updateUniformBuffer();
 
     vk::SubmitInfo submitInfo;
     vk::Semaphore waitSemaphores[] = {curImageAvailableSemaphore};
@@ -740,6 +814,10 @@ void HelloTriangleApplication::initVulkan()
     createSwapchain();
 
     createRenderPass();
+
+    createDescriptorSetLayout();
+    createDescriptorPool();
+
     createGraphicsPipeline();
     createFramebuffers();
 
@@ -770,6 +848,25 @@ void HelloTriangleApplication::mainLoop()
     }
 }
 
+void HelloTriangleApplication::updateUniformBuffer()
+{
+    static auto startTime = std::chrono::high_resolution_clock::now();
+    auto currentTime = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(currentTime - startTime).count();
+    UniformBufferObject ubo;
+    auto& curUniformBuffer = m_frameDatas[m_currentFrame].m_uniformBuffer;
+
+    ubo.m_model = glm::rotate(glm::mat4(1.0f), time * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.m_proj = glm::perspective(glm::radians(45.0f),
+                                  swapchain->m_info.extent.width / (float)swapchain->m_info.extent.height,
+                                  0.1f,
+                                  100.0f);
+    ubo.m_proj[1][1] *= -1;
+    ubo.m_view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    curUniformBuffer->updateData(&ubo, sizeof(ubo));
+}
+
 void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
 {
     vk::CommandBufferBeginInfo beginInfo;
@@ -795,8 +892,11 @@ void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuff
     vk::DeviceSize offsets[] = {0};
     commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
     commandBuffer.bindIndexBuffer(m_indexBuffer->m_buffer, 0, vk::IndexType::eUint32);
+    commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, 1,
+                                     &m_frameDatas[m_currentFrame].m_descriptorSet, 0, nullptr);
 
     // commandBuffer.draw(m_vertices.size(), 1, 0, 0);
+
     commandBuffer.drawIndexed(m_indices.size(), 1, 0, 0, 0);
     commandBuffer.endRenderPass();
 
@@ -839,6 +939,7 @@ void HelloTriangleApplication::cleanup()
         device.destroyFence(frameData.m_fence);
         device.destroySemaphore(frameData.m_renderFinishedSemaphore);
         device.destroySemaphore(frameData.m_imageAvailableSemaphore);
+        frameData.m_uniformBuffer.reset();
     }
     HUAN_CORE_INFO("Synchronizations destroyed.")
 
@@ -858,6 +959,10 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("Render pass destroyed.")
     swapchain.reset();
     HUAN_CORE_INFO("Swapchain destroyed.")
+    device.destroyDescriptorPool(m_descriptorPool);
+    HUAN_CORE_INFO("DescriptorPool destroyed.")
+    device.destroyDescriptorSetLayout(m_descriptorSetLayout);
+    HUAN_CORE_INFO("DescriptorSet layout destroyed. ")
     vkInstance.destroySurfaceKHR(surface);
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
     m_vertexBuffer.reset();

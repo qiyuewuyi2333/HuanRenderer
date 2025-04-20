@@ -13,12 +13,18 @@ namespace huan
 {
 struct VulkanBuffer
 {
-    template <typename... Args>
-    friend Scope<VulkanBuffer> createScope(Args&&... args);
+    enum class WriteType
+    {
+        Static,
+        Dynamic
+    };
+
     void copyFrom(vk::Buffer buffer, VkDeviceSize size);
 
     vk::Buffer m_buffer;
     vk::DeviceMemory m_memory;
+    void* m_data = nullptr;
+    WriteType m_writeType;
 
     vk::Device& deviceHandle = HelloTriangleApplication::getInstance()->device;
 
@@ -33,19 +39,28 @@ struct VulkanBuffer
             deviceHandle.freeMemory(m_memory);
         }
     }
+
 private:
     VulkanBuffer() = default;
     VulkanBuffer(VulkanBuffer& that);
     VulkanBuffer& operator=(VulkanBuffer& that) = delete;
+
 
     struct PrivateKey
     {
         explicit PrivateKey() = default;
     };
 
+private:
+    static Scope<VulkanBuffer> createByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
+                                                     vk::MemoryPropertyFlags memoryProperties, void* srcData = nullptr);
+    static Scope<VulkanBuffer> createNormal(vk::DeviceSize size, vk::BufferUsageFlags usage,
+                                            vk::MemoryPropertyFlags memoryProperties, void* srcData = nullptr);
+
 public:
+    void updateData(void* srcData, VkDeviceSize size, VkDeviceSize offset = 0);
     static Scope<VulkanBuffer> create(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                      vk::MemoryPropertyFlags memoryProperties);
+                                      vk::MemoryPropertyFlags memoryProperties, void* srcData = nullptr);
     static uint32_t findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
 };
 }
