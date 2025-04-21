@@ -20,7 +20,14 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/shader.hpp
         include/huan/backend/vulkan_buffer.hpp
         src/backend/vulkan_buffer.cpp
-        src/utils/stb_image.cpp)
+        src/utils/stb_image.cpp
+        include/huan/backend/vulkan_image.hpp
+        src/backend/vulkan_image.cpp
+        include/huan/backend/vulkan_command.hpp
+        src/backend/vulkan_command.cpp
+        include/huan/common_templates/deferred_system.hpp
+        include/huan/backend/vulkan_resources.hpp
+        src/backend/vulkan_resources.cpp)
 
 if(${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)
