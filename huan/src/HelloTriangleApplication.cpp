@@ -15,6 +15,9 @@
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_load.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "huan/backend/vulkan_image.hpp"
+#include "huan/backend/vulkan_resources.hpp"
+#include "huan/utils/stb_image.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -168,20 +171,23 @@ void HelloTriangleApplication::createVertexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
-    m_vertexBuffer = VulkanBuffer::create(bufferSize,
-                                          vk::BufferUsageFlagBits::eVertexBuffer |
-                                          vk::BufferUsageFlagBits::eTransferDst,
-                                          vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_vertices.data()));
+    m_vertexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(bufferSize,
+        vk::BufferUsageFlagBits::eVertexBuffer |
+        vk::BufferUsageFlagBits::eTransferDst,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_vertices.data()));
+    HUAN_CORE_INFO("VertexBuffer created.")
 }
 
 void HelloTriangleApplication::createIndexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(uint32_t) * m_indices.size();
 
-    m_indexBuffer = VulkanBuffer::create(bufferSize,
-                                         vk::BufferUsageFlagBits::eIndexBuffer |
-                                         vk::BufferUsageFlagBits::eTransferDst,
-                                         vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_indices.data()));
+    m_indexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(bufferSize,
+                                                                               vk::BufferUsageFlagBits::eIndexBuffer |
+                                                                               vk::BufferUsageFlagBits::eTransferDst,
+                                                                               vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                                                               (void*)(m_indices.data()));
+    HUAN_CORE_INFO("IndexBuffer created.")
 }
 
 /**
@@ -194,11 +200,13 @@ void HelloTriangleApplication::createUniformBuffers()
 
     for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
     {
-        m_frameDatas[i].m_uniformBuffer = VulkanBuffer::create(bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
-                                                               vk::MemoryPropertyFlagBits::eHostVisible |
-                                                               vk::MemoryPropertyFlagBits::eHostCoherent, nullptr);
+        m_frameDatas[i].m_uniformBuffer = ResourceSystem::getInstance()->createBufferNormal(
+            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
+            vk::MemoryPropertyFlagBits::eHostVisible |
+            vk::MemoryPropertyFlagBits::eHostCoherent, nullptr);
     }
 
+    HUAN_CORE_INFO("UniformBuffers created. ")
 }
 
 std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
@@ -393,16 +401,17 @@ void HelloTriangleApplication::createDevice()
     {
         vk::DeviceQueueCreateInfo queueCreateInfo;
 
-        queueCreateInfo.setPQueuePriorities(&priorities)
-                       .setQueueCount(1)
+        queueCreateInfo.setQueuePriorities(priorities)
                        .setQueueFamilyIndex(queueFamily);
         queueCreateInfos.push_back(queueCreateInfo);
     }
+    vk::PhysicalDeviceFeatures features;
+    features.samplerAnisotropy = VK_TRUE;
 
     deviceCreateInfo.setQueueCreateInfos(queueCreateInfos)
-                    .setQueueCreateInfoCount(static_cast<uint32_t>(queueCreateInfos.size()))
                     .setEnabledExtensionCount(static_cast<uint32_t>(requiredDeviceExtensions.size()))
-                    .setPpEnabledExtensionNames(requiredDeviceExtensions.data());
+                    .setPpEnabledExtensionNames(requiredDeviceExtensions.data())
+                    .setPEnabledFeatures(&features);
 
     device = physicalDevice.createDevice(deviceCreateInfo);
 }
@@ -434,7 +443,7 @@ void HelloTriangleApplication::createDescriptorPool()
     vk::DescriptorPoolCreateInfo poolCreateInfo;
     std::vector<vk::DescriptorPoolSize> poolSizes = {
         vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight),
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight)
+        vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1)
     };
 
     poolCreateInfo.setPoolSizes(poolSizes)
@@ -457,6 +466,12 @@ void HelloTriangleApplication::createDescriptorSets()
                 .setSetLayouts(layouts);
 
     auto sets = device.allocateDescriptorSets(allocateInfo);
+    // NOTE: 所有的渲染帧使用相同的Image 资源
+    vk::DescriptorImageInfo imageInfo;
+    imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
+             .setImageView(m_textureImageView)
+             .setSampler(m_textureSampler);
+
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
     {
         m_frameDatas[i].m_descriptorSet = sets[i];
@@ -465,15 +480,22 @@ void HelloTriangleApplication::createDescriptorSets()
                   .setOffset(0)
                   .setRange(sizeof(UniformBufferObject));
 
-        vk::WriteDescriptorSet writeInfo;
-        writeInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
-                 .setDstBinding(0)
-                 .setDstArrayElement(0)
-                 .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-                 .setDescriptorCount(1)
-                 .setBufferInfo(bufferInfo);
+        vk::WriteDescriptorSet writeBufferInfo;
+        writeBufferInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
+                       .setDstBinding(0)
+                       .setDstArrayElement(0)
+                       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                       .setDescriptorCount(1)
+                       .setBufferInfo(bufferInfo);
+        vk::WriteDescriptorSet imageWriteInfo;
+        imageWriteInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
+                      .setDstBinding(1)
+                      .setDstArrayElement(0)
+                      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                      .setDescriptorCount(1)
+                      .setImageInfo(imageInfo);
 
-        device.updateDescriptorSets(writeInfo, nullptr);
+        device.updateDescriptorSets({writeBufferInfo, imageWriteInfo}, nullptr);
     }
 
     HUAN_CORE_INFO("DescriptorSet in frameData created and configured! ")
@@ -483,8 +505,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
 {
     HUAN_CORE_INFO("Creating graphics pipeline...")
     // Shaders
-    auto vertexShader = utils::loadFile("../../../../assets/UniformBuffer/shader.vert.spv");
-    auto fragShader = utils::loadFile("../../../../assets/UniformBuffer/shader.frag.spv");
+    auto vertexShader = utils::loadFile("../../../../assets/Shaders/SimpleTex/shader.vert.spv");
+    auto fragShader = utils::loadFile("../../../../assets/Shaders/SimpleTex/shader.frag.spv");
 
     auto vertexShaderModule = Shader::createShaderModule(vertexShader);
     auto fragShaderModule = Shader::createShaderModule(fragShader);
@@ -608,6 +630,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
 /**
  * Descriptor is a way to let shader access resources in buffers freely.
+ * And the DescriptorSetLayout is a descriptor set's layout.
  */
 void HelloTriangleApplication::createDescriptorSetLayout()
 {
@@ -617,9 +640,17 @@ void HelloTriangleApplication::createDescriptorSetLayout()
                     .setDescriptorCount(1)
                     .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
                     .setPImmutableSamplers(nullptr);
+    vk::DescriptorSetLayoutBinding combinedImageSamplerBinding;
+    combinedImageSamplerBinding.setBinding(1)
+                               .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                               .setDescriptorCount(1)
+                               .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                               .setPImmutableSamplers(nullptr);
+
+    std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, combinedImageSamplerBinding};
 
     vk::DescriptorSetLayoutCreateInfo layoutInfo;
-    layoutInfo.setBindingCount(1).setPBindings(&uboLayoutBinding);
+    layoutInfo.setBindings(bindings);
 
     m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
     if (!m_descriptorSetLayout)
@@ -703,7 +734,55 @@ void HelloTriangleApplication::createFramebuffers()
 
 void HelloTriangleApplication::createTextureImage()
 {
+    int texWidth, texHeight, texChannels;
+    stbi_uc* pixels = stbi_load("../../../../assets/Images/xun.png", &texWidth, &texHeight, &texChannels,
+                                STBI_rgb_alpha);
 
+    vk::DeviceSize imageSize = texWidth * texHeight * 4;
+    if (!pixels)
+        HUAN_CORE_BREAK("Failed to load texture image! ")
+
+    m_textureImage = ResourceSystem::getInstance()->createImageByStagingBuffer(
+        vk::ImageType::e2D, vk::Extent3D(texWidth, texHeight, 1), 1,
+        vk::Format::eR8G8B8A8Srgb,
+        vk::ImageTiling::eOptimal,
+        vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
+        vk::MemoryPropertyFlagBits::eDeviceLocal, pixels
+        );
+
+    stbi_image_free(pixels);
+}
+
+void HelloTriangleApplication::createTextureImageView()
+{
+    m_textureImageView = ResourceSystem::getInstance()->createImageView(m_textureImage->m_image, vk::ImageViewType::e2D,
+                                                                        vk::Format::eR8G8B8A8Srgb,
+                                                                        vk::ImageAspectFlagBits::eColor, 1);
+    if (!m_textureImageView)
+        HUAN_CORE_BREAK("Failed to create texture image view.")
+
+}
+
+void HelloTriangleApplication::createTextureSampler()
+{
+    vk::SamplerCreateInfo samplerInfo;
+    samplerInfo.setMagFilter(vk::Filter::eLinear)
+               .setMinFilter(vk::Filter::eLinear)
+               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+               .setAnisotropyEnable(VK_TRUE)
+               .setMaxAnisotropy(physicalDevice.getProperties().limits.maxSamplerAnisotropy)
+               .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+               .setUnnormalizedCoordinates(VK_FALSE)
+               .setCompareEnable(VK_FALSE)
+               .setCompareOp(vk::CompareOp::eAlways)
+               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+               .setMipLodBias(0.0f)
+               .setMinLod(0.0f)
+               .setMaxLod(0.0f);
+
+    m_textureSampler = device.createSampler(samplerInfo);
 }
 
 void HelloTriangleApplication::drawFrame()
@@ -822,6 +901,9 @@ void HelloTriangleApplication::initVulkan()
     createFramebuffers();
 
     createCommandPool();
+    createTextureImage();
+    createTextureImageView();
+    createTextureSampler();
     createVertexBufferAndMemory();
     createIndexBufferAndMemory();
 
@@ -864,7 +946,7 @@ void HelloTriangleApplication::updateUniformBuffer()
     ubo.m_proj[1][1] *= -1;
     ubo.m_view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    curUniformBuffer->updateData(&ubo, sizeof(ubo));
+    ResourceSystem::getInstance()->updateDataInBuffer(*curUniformBuffer, &ubo, sizeof(ubo));
 }
 
 void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
@@ -939,9 +1021,9 @@ void HelloTriangleApplication::cleanup()
         device.destroyFence(frameData.m_fence);
         device.destroySemaphore(frameData.m_renderFinishedSemaphore);
         device.destroySemaphore(frameData.m_imageAvailableSemaphore);
-        frameData.m_uniformBuffer.reset();
+        ResourceSystem::getInstance()->destroyBuffer(frameData.m_uniformBuffer.get());
     }
-    HUAN_CORE_INFO("Synchronizations destroyed.")
+    HUAN_CORE_INFO("FrameDatas destroyed.")
 
     device.destroyCommandPool(m_commandPool);
     device.destroyCommandPool(m_transferCommandPool);
@@ -964,11 +1046,17 @@ void HelloTriangleApplication::cleanup()
     device.destroyDescriptorSetLayout(m_descriptorSetLayout);
     HUAN_CORE_INFO("DescriptorSet layout destroyed. ")
     vkInstance.destroySurfaceKHR(surface);
-    HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
-    m_vertexBuffer.reset();
-    HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
-    m_indexBuffer.reset();
     HUAN_CORE_INFO("Surface destroyed.")
+    device.destroySampler(m_textureSampler);
+    HUAN_CORE_INFO("Sampler destroyed.")
+    device.destroyImageView(m_textureImageView);
+    HUAN_CORE_INFO("m_textureImageView destroyed! ")
+    ResourceSystem::getInstance()->destroyImage(m_textureImage.get());
+    HUAN_CORE_INFO("m_textureImage freed! ")
+    ResourceSystem::getInstance()->destroyBuffer(m_vertexBuffer.get());
+    HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
+    ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());
+    HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
     device.destroy();
     HUAN_CORE_INFO("Device destroyed.")
 

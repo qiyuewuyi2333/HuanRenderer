@@ -37,12 +37,12 @@
 #define HUAN_CLIENT_BREAK(...)                                                                                     \
     {                                                                                                                  \
         HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                   \
-        assert(true);                                                                                            \
+        assert(false);                                                                                            \
     }
 #define HUAN_CORE_BREAK(...)                                                                               \
     {                                                                                                                  \
         HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                   \
-        assert(true); \
+        assert(false); \
     }
 #define HUAN_CLIENT_ASSERT(x, ...)                                                                                     \
     {                                                                                                                  \

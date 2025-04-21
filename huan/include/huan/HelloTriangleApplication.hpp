@@ -16,12 +16,17 @@ struct GLFWwindow;
 
 namespace huan
 {
-struct VulkanBuffer;
+namespace vulkan
+{
+class Image;
+struct Buffer;
+}
 
 struct Vertex
 {
     glm::vec2 m_pos;
     glm::vec3 m_color;
+    glm::vec2 m_texCoord;
 
     static vk::VertexInputBindingDescription getBindingDescription()
     {
@@ -33,7 +38,7 @@ struct Vertex
 
     static std::vector<vk::VertexInputAttributeDescription> getAttributeDescriptions()
     {
-        std::vector<vk::VertexInputAttributeDescription> attributeDescriptions(2);
+        std::vector<vk::VertexInputAttributeDescription> attributeDescriptions(3);
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
         attributeDescriptions[0].format = vk::Format::eR32G32Sfloat;
@@ -44,6 +49,11 @@ struct Vertex
         attributeDescriptions[1].format = vk::Format::eR32G32B32Sfloat;
         attributeDescriptions[1].offset = offsetof(Vertex, m_color);
 
+        attributeDescriptions[2].binding = 0;
+        attributeDescriptions[2].location = 2;
+        attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
+        attributeDescriptions[2].offset = offsetof(Vertex, m_texCoord);
+        
         return attributeDescriptions;
     }
 };
@@ -55,7 +65,7 @@ struct VulkanFrameData
     vk::Semaphore m_imageAvailableSemaphore;
     vk::Semaphore m_renderFinishedSemaphore;
 
-    Scope<VulkanBuffer> m_uniformBuffer;
+    Scope<vulkan::Buffer> m_uniformBuffer;
     vk::DescriptorSet m_descriptorSet;
 };
 
@@ -118,15 +128,17 @@ private:
     void createFramebuffers();
 
     void createTextureImage();
+    void createTextureImageView();
+    void createTextureSampler();
     void createVertexBufferAndMemory();
     void createIndexBufferAndMemory();
     void createCommandPool();
-    
+
     void createCommandBuffer(); // Using in createFrameData()
     void createSynchronization();
-    void createUniformBuffers();        
+    void createUniformBuffers();
     void createFrameData();
-    
+
 
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapchain();
@@ -177,18 +189,22 @@ public:
     std::vector<VulkanFrameData> m_frameDatas;
     uint32_t m_currentFrame = 0;
 
-    Scope<VulkanBuffer> m_vertexBuffer;
-    Scope<VulkanBuffer> m_indexBuffer;
+    Scope<vulkan::Buffer> m_vertexBuffer;
+    Scope<vulkan::Buffer> m_indexBuffer;
+
+    Scope<vulkan::Image> m_textureImage;
+    vk::ImageView m_textureImageView;
+    vk::Sampler m_textureSampler;
     
     bool initialized = false;
     bool m_framebufferResized = false;
 
     // 顶点数据
     const std::vector<Vertex> m_vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
     };
 
     const std::vector<uint32_t> m_indices = {0, 1, 2, 2, 3, 0};
