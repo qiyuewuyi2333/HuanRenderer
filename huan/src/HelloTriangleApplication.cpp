@@ -19,6 +19,7 @@
 #include "huan/backend/vulkan_resources.hpp"
 #include "huan/utils/stb_image.h"
 
+
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
                                                     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -37,31 +38,31 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 
     return VK_FALSE;
 }
-
-VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-                                        const VkAllocationCallbacks* pAllocator,
-                                        VkDebugUtilsMessengerEXT* pDebugMessenger)
-{
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-    if (func != nullptr)
-    {
-        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-    }
-    else
-    {
-        return VK_ERROR_EXTENSION_NOT_PRESENT;
-    }
-}
-
-void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-                                     const VkAllocationCallbacks* pAllocator)
-{
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-    if (func != nullptr)
-    {
-        func(instance, debugMessenger, pAllocator);
-    }
-}
+// NOTE: We use volk library for load these functions.
+// VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+//                                         const VkAllocationCallbacks* pAllocator,
+//                                         VkDebugUtilsMessengerEXT* pDebugMessenger)
+// {
+//     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+//     if (func != nullptr)
+//     {
+//         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+//     }
+//     else
+//     {
+//         return VK_ERROR_EXTENSION_NOT_PRESENT;
+//     }
+// }
+//
+// void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
+//                                      const VkAllocationCallbacks* pAllocator)
+// {
+//     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+//     if (func != nullptr)
+//     {
+//         func(instance, debugMessenger, pAllocator);
+//     }
+// }
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
@@ -329,6 +330,9 @@ void HelloTriangleApplication::createInstance()
     {
         HUAN_CORE_BREAK("Failed to create Vulkan instance")
     }
+    // Load volk
+    volkInitialize();
+    volkLoadInstance(vkInstance);
 }
 
 void HelloTriangleApplication::createDebugMessenger()
@@ -364,8 +368,8 @@ void HelloTriangleApplication::pickPhysicalDevice()
     infoString.str("");
     auto requiredDeviceExtensions = getRequiredDeviceExtensions();
     infoString << "\nRequired Device Extensions: \n";
-    for (const auto& deviceExtension : deviceExtensions)
-        infoString << "\t" << deviceExtension.extensionName << "\n";
+    for (const auto& deviceExtension : requiredDeviceExtensions)
+        infoString << "\t" << deviceExtension << "\n";
     HUAN_CORE_INFO(infoString.str());
 
     for (const auto& requiredDeviceExtension : requiredDeviceExtensions)
@@ -414,6 +418,18 @@ void HelloTriangleApplication::createDevice()
                     .setPEnabledFeatures(&features);
 
     device = physicalDevice.createDevice(deviceCreateInfo);
+    volkLoadDevice(device);
+}
+
+void HelloTriangleApplication::createAllocator()
+{
+    VmaAllocatorCreateInfo allocatorInfo;
+    allocatorInfo.instance = vkInstance;
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
+    VmaVulkanFunctions vulkanFunctions;
+    VkResult res = vmaImportVulkanFunctionsFromVolk(&allocatorInfo, &vulkanFunctions);
 }
 
 void HelloTriangleApplication::getQueues()
@@ -441,13 +457,14 @@ void HelloTriangleApplication::createSwapchain()
 void HelloTriangleApplication::createDescriptorPool()
 {
     vk::DescriptorPoolCreateInfo poolCreateInfo;
+    // NOTE: 池大小表示描述符数量的预期值，可以理解为Capacity
     std::vector<vk::DescriptorPoolSize> poolSizes = {
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 3),
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1)
     };
 
     poolCreateInfo.setPoolSizes(poolSizes)
-                  .setMaxSets(globalAppSettings.maxFramesInFlight);
+                  .setMaxSets(globalAppSettings.maxFramesInFlight); //可以分配的最大描述符集数量
 
     m_descriptorPool = device.createDescriptorPool(poolCreateInfo);
     if (!m_descriptorPool)
@@ -456,6 +473,9 @@ void HelloTriangleApplication::createDescriptorPool()
     HUAN_CORE_INFO("DescriptorSet pool created! ")
 }
 
+/**
+ * 创建我们所需要的描述符
+ */
 void HelloTriangleApplication::createDescriptorSets()
 {
     std::vector<vk::DescriptorSetLayout> layouts(globalAppSettings.maxFramesInFlight, m_descriptorSetLayout);
@@ -593,7 +613,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     // Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-    pipelineLayoutInfo.setSetLayouts(m_descriptorSetLayout) // 指定 描述符集
+    pipelineLayoutInfo.setSetLayouts(m_descriptorSetLayout) // 指定 描述符集 告诉该管线预期使用哪些描述符集
                       .setPushConstantRanges(nullptr);
 
     m_pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
@@ -652,7 +672,7 @@ void HelloTriangleApplication::createDescriptorSetLayout()
     vk::DescriptorSetLayoutCreateInfo layoutInfo;
     layoutInfo.setBindings(bindings);
 
-    m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
+        m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
     if (!m_descriptorSetLayout)
         HUAN_CORE_BREAK("Failed to create descriptor set layout")
 }

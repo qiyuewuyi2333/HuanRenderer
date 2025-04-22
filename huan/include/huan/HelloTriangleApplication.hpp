@@ -12,6 +12,9 @@
 #include <huan/backend/swapchain.hpp>
 #include <glm/glm.hpp>
 
+#include "volk.h"
+#include "vk_mem_alloc.h"
+
 struct GLFWwindow;
 
 namespace huan
@@ -116,6 +119,7 @@ private:
     void pickPhysicalDevice();
     void queryQueueFamilyIndices();
     void createDevice();
+    void createAllocator();
     void getQueues();
 
     void createSurface();
@@ -166,6 +170,7 @@ public:
     vk::DebugUtilsMessengerEXT debugMessenger;
     vk::PhysicalDevice physicalDevice;
     vk::Device device;
+    VmaAllocator allocator;
     QueueFamilyIndices queueFamilyIndices;
     vk::Queue graphicsQueue;
     vk::Queue presentQueue;

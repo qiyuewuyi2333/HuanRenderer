@@ -27,7 +27,9 @@ add_library(${PROJECT_NAME} SHARED
         src/backend/vulkan_command.cpp
         include/huan/common_templates/deferred_system.hpp
         include/huan/backend/vulkan_resources.hpp
-        src/backend/vulkan_resources.cpp)
+        src/backend/vulkan_resources.cpp
+        src/backend/vma_volkUsage.cpp
+        )
 
 if(${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)
@@ -46,6 +48,13 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/in
 find_package(Vulkan REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
 target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+
+# VMA
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/third_party/VulkanMemoryAllocator/include)
+target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
+
+find_package(volk CONFIG REQUIRED)
+target_link_libraries(${PROJECT_NAME} PRIVATE volk::volk volk::volk_headers)
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
