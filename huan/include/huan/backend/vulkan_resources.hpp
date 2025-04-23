@@ -5,6 +5,7 @@
 #ifndef VULKAN_RESOURCES_HPP
 #define VULKAN_RESOURCES_HPP
 
+#include "vk_mem_alloc.h"
 #include "huan/common.hpp"
 #include "huan/common_templates/deferred_system.hpp"
 #include "huan/log/Log.hpp"
@@ -28,7 +29,6 @@ public:
                                                       vk::MemoryPropertyFlags memoryProperties,
                                                       void* srcData = nullptr);
     Scope<vulkan::Buffer> createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                             vk::MemoryPropertyFlags memoryProperties,
                                              void* srcData = nullptr);
     void updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
                             vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
@@ -61,6 +61,7 @@ protected:
 
     vk::Device& deviceHandle;
     vk::PhysicalDevice& physicalDeviceHandle;
+    VmaAllocator& allocatorHandle;
 
 };
 

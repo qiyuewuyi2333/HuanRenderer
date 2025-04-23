@@ -5,14 +5,15 @@
 #ifndef HELLOTRIANGLEAPPLICATION_HPP
 #define HELLOTRIANGLEAPPLICATION_HPP
 
-#include <optional>
+#define VK_NO_PROTOTYPES
 
+#include <optional>
 #include "huan/common.hpp"
 #include "vulkan/vulkan.hpp"
 #include <huan/backend/swapchain.hpp>
 #include <glm/glm.hpp>
 
-#include "volk.h"
+#define VOLK_HEADER_VERSION
 #include "vk_mem_alloc.h"
 
 struct GLFWwindow;

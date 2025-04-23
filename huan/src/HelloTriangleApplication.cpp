@@ -19,6 +19,7 @@
 #include "huan/backend/vulkan_resources.hpp"
 #include "huan/utils/stb_image.h"
 
+#include "volk.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -38,6 +39,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
 
     return VK_FALSE;
 }
+
 // NOTE: We use volk library for load these functions.
 // VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
 //                                         const VkAllocationCallbacks* pAllocator,
@@ -203,8 +205,7 @@ void HelloTriangleApplication::createUniformBuffers()
     {
         m_frameDatas[i].m_uniformBuffer = ResourceSystem::getInstance()->createBufferNormal(
             bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent, nullptr);
+            nullptr);
     }
 
     HUAN_CORE_INFO("UniformBuffers created. ")
@@ -429,7 +430,11 @@ void HelloTriangleApplication::createAllocator()
     allocatorInfo.device = device;
     allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
     VmaVulkanFunctions vulkanFunctions;
-    VkResult res = vmaImportVulkanFunctionsFromVolk(&allocatorInfo, &vulkanFunctions);
+    vmaImportVulkanFunctionsFromVolk(&allocatorInfo, &vulkanFunctions);
+
+    vmaCreateAllocator(&allocatorInfo, &allocator);
+
+    HUAN_CORE_INFO("Vulkan Memory Allocator created! ")
 }
 
 void HelloTriangleApplication::getQueues()
@@ -672,7 +677,7 @@ void HelloTriangleApplication::createDescriptorSetLayout()
     vk::DescriptorSetLayoutCreateInfo layoutInfo;
     layoutInfo.setBindings(bindings);
 
-        m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
+    m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
     if (!m_descriptorSetLayout)
         HUAN_CORE_BREAK("Failed to create descriptor set layout")
 }
@@ -1077,6 +1082,8 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
     ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());
     HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
+    vmaDestroyAllocator(allocator);
+    HUAN_CORE_INFO("Allocator destroyed.")
     device.destroy();
     HUAN_CORE_INFO("Device destroyed.")
 

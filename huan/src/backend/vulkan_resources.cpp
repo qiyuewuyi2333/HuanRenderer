@@ -27,37 +27,33 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize
     vulkan::Buffer tempObj;
     tempObj.m_writeType = vulkan::Buffer::WriteType::Static;
 
-    vk::BufferCreateInfo bufferInfo;
+    VkBufferCreateInfo bufferInfo;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
     bufferInfo.setSize(size)
               .setUsage(usage)
               .setSharingMode(vk::SharingMode::eExclusive);
+    VmaAllocationCreateInfo allocationCreateInfo;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
+    allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
 
-    tempObj.m_buffer = deviceHandle.createBuffer(bufferInfo);
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("Failed to create vertex buffer");
-
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getBufferMemoryRequirements(tempObj.m_buffer);
-    // 申请内存信息需要指定内存大小和内存类型索引
-    vk::MemoryAllocateInfo allocInfo;
-    allocInfo.setAllocationSize(memoryRequirements.size)
-             .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, memoryProperties));
-    tempObj.m_memory = deviceHandle.allocateMemory(allocInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("Failed to allocate memory for vertices! ")
-
-    deviceHandle.bindBufferMemory(tempObj.m_buffer, tempObj.m_memory, 0);
+    VmaAllocationInfo allocationInfo;
+    vmaCreateBuffer(allocatorHandle, &bufferInfo, &allocationCreateInfo, &tempObj.m_buffer, &tempObj.m_allocation, &allocationInfo);
 
     auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                            vk::MemoryPropertyFlagBits::eHostVisible |
-                                            vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                            srcData);
+    
     copyBufferToBuffer(stagingBuffer->m_buffer, tempObj.m_buffer, size);
     destroyBuffer(stagingBuffer.get());
+    
+    if (!tempObj.m_buffer)
+        HUAN_CORE_BREAK("Failed to create buffer.");
 
     return createScope<EnableCreateScope>(tempObj);
 }
 
 Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                                         vk::MemoryPropertyFlags memoryProperties, void* srcData)
+                                                         void* srcData)
 {
     // 使用具备类实现私有构造函数
     struct EnableCreateScope : public vulkan::Buffer
@@ -74,25 +70,19 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk
     bufferInfo.setSize(size)
               .setUsage(usage)
               .setSharingMode(vk::SharingMode::eExclusive);
+    VmaAllocationCreateInfo allocationCreateInfo;
+    allocationCreateInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
+    allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
 
-    tempObj.m_buffer = deviceHandle.createBuffer(bufferInfo);
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create vertex buffer");
-
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getBufferMemoryRequirements(tempObj.m_buffer);
-    // 申请内存信息需要指定内存大小和内存类型索引
-    vk::MemoryAllocateInfo allocInfo;
-    allocInfo.setAllocationSize(memoryRequirements.size)
-             .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, memoryProperties));
-    tempObj.m_memory = deviceHandle.allocateMemory(allocInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory for vertices! ");
-
-    deviceHandle.bindBufferMemory(tempObj.m_buffer, tempObj.m_memory, 0);
-    tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, size);
+    vmaCreateBuffer(allocatorHandle, &bufferInfo, &allocationCreateInfo, &tempObj.m_buffer, &tempObj.m_allocation);
 
     updateDataInBuffer(tempObj, srcData, size);
 
+    if (!tempObj.m_buffer)
+        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create buffer");
+    if (!tempObj.m_allocation)
+        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
     return createScope<EnableCreateScope>(tempObj);
 }
 
@@ -101,19 +91,17 @@ void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcD
 {
     if (srcData == nullptr)
     {
-        HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the data is nullptr.");
+        HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the srcData is nullptr.");
         return;
     }
     if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
     {
-        // Write in to
-        memcpy((char*)targetBuffer.m_data + dstOffset, (char*)srcData + srcOffset, size);
+        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation, dstOffset, size);
     }
     else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
     {
         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                                vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                                srcData);
         copyBufferToBuffer(targetBuffer.m_buffer, stagingBuffer->m_buffer, size);
         destroyBuffer(stagingBuffer.get());
     }
@@ -134,8 +122,7 @@ void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData
     else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
     {
         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                                vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                                srcData);
         copyBufferToImage(stagingBuffer->m_buffer, targetImage.m_image, targetImage.m_extent);
         destroyBuffer(stagingBuffer.get());
     }
@@ -189,8 +176,7 @@ Scope<vulkan::Image> ResourceSystem::createImageByStagingBuffer(vk::ImageType im
     deviceHandle.bindImageMemory(tempObj.m_image, tempObj.m_memory, 0);
 
     auto stagingBuffer = createBufferNormal(memoryRequirements.size, vk::BufferUsageFlagBits::eTransferSrc,
-                                            vk::MemoryPropertyFlagBits::eHostVisible |
-                                            vk::MemoryPropertyFlagBits::eHostCoherent, data);
+                                            data);
     // Transition the layout to vk::ImageLayout::eTransferDstOptimal for copying data to it.
     transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
     copyBufferToImage(stagingBuffer->m_buffer, tempObj.m_image, extent);
@@ -386,12 +372,7 @@ void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage,
 
 void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
 {
-    if (buffer->m_writeType == vulkan::Buffer::WriteType::Dynamic)
-        deviceHandle.unmapMemory(buffer->m_memory);
-    if (buffer->m_buffer)
-        deviceHandle.destroyBuffer(buffer->m_buffer);
-    if (buffer->m_memory)
-        deviceHandle.freeMemory(buffer->m_memory);
+    vmaDestroyBuffer(allocatorHandle, buffer->m_buffer, buffer->m_allocation);
 }
 
 void ResourceSystem::destroyImage(vulkan::Image* image)
@@ -406,7 +387,8 @@ void ResourceSystem::destroyImage(vulkan::Image* image)
 
 ResourceSystem::ResourceSystem()
     : deviceHandle(HelloTriangleApplication::getInstance()->device),
-      physicalDeviceHandle(HelloTriangleApplication::getInstance()->physicalDevice)
+      physicalDeviceHandle(HelloTriangleApplication::getInstance()->physicalDevice),
+      allocatorHandle(HelloTriangleApplication::getInstance()->allocator)
 {
 
 }
