@@ -4,17 +4,15 @@
 
 #ifndef HELLOTRIANGLEAPPLICATION_HPP
 #define HELLOTRIANGLEAPPLICATION_HPP
-
-#define VK_NO_PROTOTYPES
-
+#include <vulkan/vulkan.hpp>
 #include <optional>
-#include "huan/common.hpp"
-#include "vulkan/vulkan.hpp"
-#include <huan/backend/swapchain.hpp>
+#include <vector>
 #include <glm/glm.hpp>
-
-#define VOLK_HEADER_VERSION
 #include "vk_mem_alloc.h"
+
+#include <huan/common.hpp>
+#include <huan/backend/swapchain.hpp>
+
 
 struct GLFWwindow;
 
@@ -201,6 +199,7 @@ public:
     Scope<vulkan::Image> m_textureImage;
     vk::ImageView m_textureImageView;
     vk::Sampler m_textureSampler;
+    
     
     bool initialized = false;
     bool m_framebufferResized = false;

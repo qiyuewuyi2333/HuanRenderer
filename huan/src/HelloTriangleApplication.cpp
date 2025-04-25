@@ -3,12 +3,12 @@
 //
 
 #include "huan/HelloTriangleApplication.hpp"
-
 #include <set>
 #include <chrono>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
+
 #include "huan/settings.hpp"
 #include "huan/backend/shader.hpp"
 #include "huan/backend/vulkan_buffer.hpp"
@@ -19,7 +19,6 @@
 #include "huan/backend/vulkan_resources.hpp"
 #include "huan/utils/stb_image.h"
 
-#include "volk.h"
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -40,31 +39,31 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
-// NOTE: We use volk library for load these functions.
-// VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-//                                         const VkAllocationCallbacks* pAllocator,
-//                                         VkDebugUtilsMessengerEXT* pDebugMessenger)
-// {
-//     auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-//     if (func != nullptr)
-//     {
-//         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
-//     }
-//     else
-//     {
-//         return VK_ERROR_EXTENSION_NOT_PRESENT;
-//     }
-// }
-//
-// void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
-//                                      const VkAllocationCallbacks* pAllocator)
-// {
-//     auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-//     if (func != nullptr)
-//     {
-//         func(instance, debugMessenger, pAllocator);
-//     }
-// }
+// NOTE: We don't use volk.
+VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
+                                        const VkAllocationCallbacks* pAllocator,
+                                        VkDebugUtilsMessengerEXT* pDebugMessenger)
+{
+    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
+    if (func != nullptr)
+    {
+        return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
+    }
+    else
+    {
+        return VK_ERROR_EXTENSION_NOT_PRESENT;
+    }
+}
+
+void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerEXT debugMessenger,
+                                     const VkAllocationCallbacks* pAllocator)
+{
+    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
+    if (func != nullptr)
+    {
+        func(instance, debugMessenger, pAllocator);
+    }
+}
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
@@ -225,7 +224,7 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
 
 std::vector<const char*> HelloTriangleApplication::getRequiredDeviceExtensions()
 {
-    return {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+    return {VK_KHR_SWAPCHAIN_EXTENSION_NAME };
 }
 
 void HelloTriangleApplication::createInstance()
@@ -331,9 +330,6 @@ void HelloTriangleApplication::createInstance()
     {
         HUAN_CORE_BREAK("Failed to create Vulkan instance")
     }
-    // Load volk
-    volkInitialize();
-    volkLoadInstance(vkInstance);
 }
 
 void HelloTriangleApplication::createDebugMessenger()
@@ -419,19 +415,14 @@ void HelloTriangleApplication::createDevice()
                     .setPEnabledFeatures(&features);
 
     device = physicalDevice.createDevice(deviceCreateInfo);
-    volkLoadDevice(device);
 }
 
 void HelloTriangleApplication::createAllocator()
 {
-    VmaAllocatorCreateInfo allocatorInfo;
+    VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = vkInstance;
     allocatorInfo.physicalDevice = physicalDevice;
     allocatorInfo.device = device;
-    allocatorInfo.vulkanApiVersion = VK_API_VERSION_1_3;
-    VmaVulkanFunctions vulkanFunctions;
-    vmaImportVulkanFunctionsFromVolk(&allocatorInfo, &vulkanFunctions);
-
     vmaCreateAllocator(&allocatorInfo, &allocator);
 
     HUAN_CORE_INFO("Vulkan Memory Allocator created! ")
@@ -913,6 +904,7 @@ void HelloTriangleApplication::initVulkan()
     pickPhysicalDevice();
     queryQueueFamilyIndices();
     createDevice();
+    createAllocator();
     getQueues();
 
     createSwapchain();

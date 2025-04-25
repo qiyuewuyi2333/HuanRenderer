@@ -27,25 +27,24 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize
     vulkan::Buffer tempObj;
     tempObj.m_writeType = vulkan::Buffer::WriteType::Static;
 
-    VkBufferCreateInfo bufferInfo;
-    bufferInfo.size = size;
-    bufferInfo.usage = usage;
+    vk::BufferCreateInfo bufferInfo;
     bufferInfo.setSize(size)
-              .setUsage(usage)
-              .setSharingMode(vk::SharingMode::eExclusive);
-    VmaAllocationCreateInfo allocationCreateInfo;
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE;
-    allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+              .setUsage(usage); // If you want to use a staging buffer to copy from
 
-    VmaAllocationInfo allocationInfo;
-    vmaCreateBuffer(allocatorHandle, &bufferInfo, &allocationCreateInfo, &tempObj.m_buffer, &tempObj.m_allocation, &allocationInfo);
+    // NOTE: 注意一定要使用 = {} 初始化，调用默认构造，否则会报错（出现无法预料的行为）
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; //因为我是Prefer_Device，所以会被隐式指定了Allow_Transfer_Instead_Bit, 于是也就需要去指定其它的标志位按照报错
+
+    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
+                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation,
+                    nullptr);
 
     auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
                                             srcData);
-    
+
     copyBufferToBuffer(stagingBuffer->m_buffer, tempObj.m_buffer, size);
     destroyBuffer(stagingBuffer.get());
-    
+
     if (!tempObj.m_buffer)
         HUAN_CORE_BREAK("Failed to create buffer.");
 
@@ -70,12 +69,13 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk
     bufferInfo.setSize(size)
               .setUsage(usage)
               .setSharingMode(vk::SharingMode::eExclusive);
-    VmaAllocationCreateInfo allocationCreateInfo;
-    allocationCreateInfo.flags = VmaAllocationCreateFlagBits::VMA_ALLOCATION_CREATE_HOST_ACCESS_ALLOW_TRANSFER_INSTEAD_BIT;
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST;
-    allocationCreateInfo.requiredFlags = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT;
+    
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-    vmaCreateBuffer(allocatorHandle, &bufferInfo, &allocationCreateInfo, &tempObj.m_buffer, &tempObj.m_allocation);
+    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
+                     reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
 
     updateDataInBuffer(tempObj, srcData, size);
 
@@ -96,7 +96,8 @@ void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcD
     }
     if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
     {
-        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation, dstOffset, size);
+        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation,
+                                  dstOffset, size);
     }
     else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
     {
