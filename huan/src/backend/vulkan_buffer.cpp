@@ -23,7 +23,6 @@ Buffer::Buffer(Buffer& that)
         std::swap(m_buffer, that.m_buffer);
         std::swap(m_allocation, that.m_allocation);
         std::swap(m_writeType, that.m_writeType);
-        std::swap(m_data, that.m_data);
         std::swap(m_Init, that.m_Init);
     }
 }

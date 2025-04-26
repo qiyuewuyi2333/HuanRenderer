@@ -6,6 +6,7 @@
 #define VULKAN_IMAGE_HPP
 #include <vulkan/vulkan.hpp>
 
+#include "vk_mem_alloc.h"
 #include "huan/common.hpp"
 
 namespace huan
@@ -28,10 +29,9 @@ public:
 
 INNER_VISIBLE:
     vk::Image m_image;
-    vk::DeviceMemory m_memory;
+    VmaAllocation m_allocation;
     WriteType m_writeType;
     vk::Extent3D m_extent;
-    void* m_data = nullptr;
 
 protected:
     Image();

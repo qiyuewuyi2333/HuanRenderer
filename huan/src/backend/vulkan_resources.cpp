@@ -33,7 +33,8 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize
 
     // NOTE: 注意一定要使用 = {} 初始化，调用默认构造，否则会报错（出现无法预料的行为）
     VmaAllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY; //因为我是Prefer_Device，所以会被隐式指定了Allow_Transfer_Instead_Bit, 于是也就需要去指定其它的标志位按照报错
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    //因为我是Prefer_Device，所以会被隐式指定了Allow_Transfer_Instead_Bit, 于是也就需要去指定其它的标志位按照报错
 
     vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
                     reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation,
@@ -69,13 +70,13 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk
     bufferInfo.setSize(size)
               .setUsage(usage)
               .setSharingMode(vk::SharingMode::eExclusive);
-    
+
     VmaAllocationCreateInfo allocationCreateInfo = {};
     allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
     allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
     vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
-                     reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
+                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
 
     updateDataInBuffer(tempObj, srcData, size);
 
@@ -118,7 +119,8 @@ void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData
     }
     if (targetImage.m_writeType == vulkan::Image::WriteType::Dynamic)
     {
-        memcpy((char*)targetImage.m_data + dstOffset, (char*)srcData + srcOffset, size);
+        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetImage.m_allocation,
+                                  dstOffset, size);
     }
     else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
     {
@@ -162,21 +164,14 @@ Scope<vulkan::Image> ResourceSystem::createImageByStagingBuffer(vk::ImageType im
                    .setQueueFamilyIndexCount(0)
                    .setPQueueFamilyIndices(nullptr)
                    .setFlags(vk::ImageCreateFlags());
-    tempObj.m_image = deviceHandle.createImage(imageCreateInfo);
-    if (!tempObj.m_image)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create image. ")
+    VmaAllocationCreateInfo memoryAllocateInfo = {};
+    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    memoryAllocateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VmaAllocationInfo allocationInfo = {};
+    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getImageMemoryRequirements(tempObj.m_image);
-    vk::MemoryAllocateInfo memoryAllocateInfo;
-    memoryAllocateInfo.setAllocationSize(memoryRequirements.size)
-                      .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, properties));
-    tempObj.m_memory = deviceHandle.allocateMemory(memoryAllocateInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate image memory. ")
-
-    deviceHandle.bindImageMemory(tempObj.m_image, tempObj.m_memory, 0);
-
-    auto stagingBuffer = createBufferNormal(memoryRequirements.size, vk::BufferUsageFlagBits::eTransferSrc,
+    auto stagingBuffer = createBufferNormal(allocationInfo.size, vk::BufferUsageFlagBits::eTransferSrc,
                                             data);
     // Transition the layout to vk::ImageLayout::eTransferDstOptimal for copying data to it.
     transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
@@ -221,30 +216,14 @@ Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, 
                    .setQueueFamilyIndexCount(0)
                    .setPQueueFamilyIndices(nullptr)
                    .setFlags(vk::ImageCreateFlags());
-    tempObj.m_image = deviceHandle.createImage(imageCreateInfo);
-    if (!tempObj.m_image)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create image. ")
+    
+    VmaAllocationCreateInfo memoryAllocateInfo = {};
+    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    VmaAllocationInfo allocationInfo;
+    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getImageMemoryRequirements(tempObj.m_image);
-    vk::MemoryAllocateInfo memoryAllocateInfo;
-    memoryAllocateInfo.setAllocationSize(memoryRequirements.size)
-                      .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, properties));
-    tempObj.m_memory = deviceHandle.allocateMemory(memoryAllocateInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate image memory. ")
-
-    deviceHandle.bindImageMemory(tempObj.m_image, tempObj.m_memory, 0);
-
-    // 对于Dynamic 的Image来说，必须映射到m_data
-    if (data)
-    {
-        tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, memoryRequirements.size);
-        memcpy(tempObj.m_data, data, memoryRequirements.size);
-    }
-    else
-    {
-        tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, memoryRequirements.size);
-    }
+    updateDataInImage(tempObj, data, allocationInfo.size);
 
     return createScope<EnableCreateScope>(tempObj);
 }
@@ -378,12 +357,7 @@ void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
 
 void ResourceSystem::destroyImage(vulkan::Image* image)
 {
-    if (image->m_writeType == vulkan::Image::WriteType::Dynamic)
-        deviceHandle.unmapMemory(image->m_memory);
-    if (image->m_image)
-        deviceHandle.destroyImage(image->m_image);
-    if (image->m_memory)
-        deviceHandle.freeMemory(image->m_memory);
+    vmaDestroyImage(allocatorHandle, image->m_image, image->m_allocation);
 }
 
 ResourceSystem::ResourceSystem()

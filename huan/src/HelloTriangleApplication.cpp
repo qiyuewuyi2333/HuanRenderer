@@ -224,7 +224,7 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
 
 std::vector<const char*> HelloTriangleApplication::getRequiredDeviceExtensions()
 {
-    return {VK_KHR_SWAPCHAIN_EXTENSION_NAME };
+    return {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 }
 
 void HelloTriangleApplication::createInstance()
@@ -423,6 +423,9 @@ void HelloTriangleApplication::createAllocator()
     allocatorInfo.instance = vkInstance;
     allocatorInfo.physicalDevice = physicalDevice;
     allocatorInfo.device = device;
+    VmaVulkanFunctions vulkanFunctions = {.vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
+                                          .vkGetDeviceProcAddr = &vkGetDeviceProcAddr};
+    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
     vmaCreateAllocator(&allocatorInfo, &allocator);
 
     HUAN_CORE_INFO("Vulkan Memory Allocator created! ")

@@ -32,7 +32,6 @@ public:
 INNER_VISIBLE:
     vk::Buffer m_buffer;
     VmaAllocation m_allocation;
-    void* m_data = nullptr;
     WriteType m_writeType;
     bool m_Init = false;
 
