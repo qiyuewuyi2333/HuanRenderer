@@ -4,13 +4,15 @@
 
 #ifndef HELLOTRIANGLEAPPLICATION_HPP
 #define HELLOTRIANGLEAPPLICATION_HPP
-
+#include <vulkan/vulkan.hpp>
 #include <optional>
-
-#include "huan/common.hpp"
-#include "vulkan/vulkan.hpp"
-#include <huan/backend/swapchain.hpp>
+#include <vector>
 #include <glm/glm.hpp>
+#include "vk_mem_alloc.h"
+
+#include <huan/common.hpp>
+#include <huan/backend/swapchain.hpp>
+
 
 struct GLFWwindow;
 
@@ -116,6 +118,7 @@ private:
     void pickPhysicalDevice();
     void queryQueueFamilyIndices();
     void createDevice();
+    void createAllocator();
     void getQueues();
 
     void createSurface();
@@ -166,6 +169,7 @@ public:
     vk::DebugUtilsMessengerEXT debugMessenger;
     vk::PhysicalDevice physicalDevice;
     vk::Device device;
+    VmaAllocator allocator;
     QueueFamilyIndices queueFamilyIndices;
     vk::Queue graphicsQueue;
     vk::Queue presentQueue;
@@ -195,6 +199,7 @@ public:
     Scope<vulkan::Image> m_textureImage;
     vk::ImageView m_textureImageView;
     vk::Sampler m_textureSampler;
+    
     
     bool initialized = false;
     bool m_framebufferResized = false;

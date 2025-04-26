@@ -5,6 +5,7 @@
 #include <strstream>
 #include <huan/backend/vulkan_buffer.hpp>
 #include "huan/common.hpp"
+#include "huan/backend/vulkan_resources.hpp"
 
 namespace huan::vulkan
 {
@@ -20,9 +21,9 @@ Buffer::Buffer(Buffer& that)
     if (this != &that) [[likely]]
     {
         std::swap(m_buffer, that.m_buffer);
-        std::swap(m_memory, that.m_memory);
+        std::swap(m_allocation, that.m_allocation);
         std::swap(m_writeType, that.m_writeType);
-        std::swap(m_data, that.m_data);
+        std::swap(m_Init, that.m_Init);
     }
 }
 

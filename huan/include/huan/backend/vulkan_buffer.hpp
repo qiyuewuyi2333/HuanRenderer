@@ -31,9 +31,9 @@ public:
 
 INNER_VISIBLE:
     vk::Buffer m_buffer;
-    vk::DeviceMemory m_memory;
-    void* m_data = nullptr;
+    VmaAllocation m_allocation;
     WriteType m_writeType;
+    bool m_Init = false;
 
 private:
     Buffer() = default;

@@ -3,12 +3,12 @@
 //
 
 #include "huan/HelloTriangleApplication.hpp"
-
 #include <set>
 #include <chrono>
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
+
 #include "huan/settings.hpp"
 #include "huan/backend/shader.hpp"
 #include "huan/backend/vulkan_buffer.hpp"
@@ -18,6 +18,7 @@
 #include "huan/backend/vulkan_image.hpp"
 #include "huan/backend/vulkan_resources.hpp"
 #include "huan/utils/stb_image.h"
+
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
                                                     VkDebugUtilsMessageTypeFlagsEXT messageType,
@@ -38,6 +39,7 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback(VkDebugUtilsMessageSeverityF
     return VK_FALSE;
 }
 
+// NOTE: We don't use volk.
 VkResult vkCreateDebugUtilsMessengerEXT(VkInstance instance, const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
                                         const VkAllocationCallbacks* pAllocator,
                                         VkDebugUtilsMessengerEXT* pDebugMessenger)
@@ -202,8 +204,7 @@ void HelloTriangleApplication::createUniformBuffers()
     {
         m_frameDatas[i].m_uniformBuffer = ResourceSystem::getInstance()->createBufferNormal(
             bufferSize, vk::BufferUsageFlagBits::eUniformBuffer,
-            vk::MemoryPropertyFlagBits::eHostVisible |
-            vk::MemoryPropertyFlagBits::eHostCoherent, nullptr);
+            nullptr);
     }
 
     HUAN_CORE_INFO("UniformBuffers created. ")
@@ -364,8 +365,8 @@ void HelloTriangleApplication::pickPhysicalDevice()
     infoString.str("");
     auto requiredDeviceExtensions = getRequiredDeviceExtensions();
     infoString << "\nRequired Device Extensions: \n";
-    for (const auto& deviceExtension : deviceExtensions)
-        infoString << "\t" << deviceExtension.extensionName << "\n";
+    for (const auto& deviceExtension : requiredDeviceExtensions)
+        infoString << "\t" << deviceExtension << "\n";
     HUAN_CORE_INFO(infoString.str());
 
     for (const auto& requiredDeviceExtension : requiredDeviceExtensions)
@@ -416,6 +417,20 @@ void HelloTriangleApplication::createDevice()
     device = physicalDevice.createDevice(deviceCreateInfo);
 }
 
+void HelloTriangleApplication::createAllocator()
+{
+    VmaAllocatorCreateInfo allocatorInfo = {};
+    allocatorInfo.instance = vkInstance;
+    allocatorInfo.physicalDevice = physicalDevice;
+    allocatorInfo.device = device;
+    VmaVulkanFunctions vulkanFunctions = {.vkGetInstanceProcAddr = &vkGetInstanceProcAddr,
+                                          .vkGetDeviceProcAddr = &vkGetDeviceProcAddr};
+    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
+    vmaCreateAllocator(&allocatorInfo, &allocator);
+
+    HUAN_CORE_INFO("Vulkan Memory Allocator created! ")
+}
+
 void HelloTriangleApplication::getQueues()
 {
     device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
@@ -441,13 +456,14 @@ void HelloTriangleApplication::createSwapchain()
 void HelloTriangleApplication::createDescriptorPool()
 {
     vk::DescriptorPoolCreateInfo poolCreateInfo;
+    // NOTE: 池大小表示描述符数量的预期值，可以理解为Capacity
     std::vector<vk::DescriptorPoolSize> poolSizes = {
-        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, globalAppSettings.maxFramesInFlight),
+        vk::DescriptorPoolSize(vk::DescriptorType::eUniformBuffer, 3),
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 1)
     };
 
     poolCreateInfo.setPoolSizes(poolSizes)
-                  .setMaxSets(globalAppSettings.maxFramesInFlight);
+                  .setMaxSets(globalAppSettings.maxFramesInFlight); //可以分配的最大描述符集数量
 
     m_descriptorPool = device.createDescriptorPool(poolCreateInfo);
     if (!m_descriptorPool)
@@ -456,6 +472,9 @@ void HelloTriangleApplication::createDescriptorPool()
     HUAN_CORE_INFO("DescriptorSet pool created! ")
 }
 
+/**
+ * 创建我们所需要的描述符
+ */
 void HelloTriangleApplication::createDescriptorSets()
 {
     std::vector<vk::DescriptorSetLayout> layouts(globalAppSettings.maxFramesInFlight, m_descriptorSetLayout);
@@ -593,7 +612,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     // Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
-    pipelineLayoutInfo.setSetLayouts(m_descriptorSetLayout) // 指定 描述符集
+    pipelineLayoutInfo.setSetLayouts(m_descriptorSetLayout) // 指定 描述符集 告诉该管线预期使用哪些描述符集
                       .setPushConstantRanges(nullptr);
 
     m_pipelineLayout = device.createPipelineLayout(pipelineLayoutInfo);
@@ -888,6 +907,7 @@ void HelloTriangleApplication::initVulkan()
     pickPhysicalDevice();
     queryQueueFamilyIndices();
     createDevice();
+    createAllocator();
     getQueues();
 
     createSwapchain();
@@ -1057,6 +1077,8 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
     ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());
     HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
+    vmaDestroyAllocator(allocator);
+    HUAN_CORE_INFO("Allocator destroyed.")
     device.destroy();
     HUAN_CORE_INFO("Device destroyed.")
 

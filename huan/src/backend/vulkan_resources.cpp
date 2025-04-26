@@ -29,35 +29,31 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize
 
     vk::BufferCreateInfo bufferInfo;
     bufferInfo.setSize(size)
-              .setUsage(usage)
-              .setSharingMode(vk::SharingMode::eExclusive);
+              .setUsage(usage); // If you want to use a staging buffer to copy from
 
-    tempObj.m_buffer = deviceHandle.createBuffer(bufferInfo);
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("Failed to create vertex buffer");
+    // NOTE: 注意一定要使用 = {} 初始化，调用默认构造，否则会报错（出现无法预料的行为）
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    //因为我是Prefer_Device，所以会被隐式指定了Allow_Transfer_Instead_Bit, 于是也就需要去指定其它的标志位按照报错
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getBufferMemoryRequirements(tempObj.m_buffer);
-    // 申请内存信息需要指定内存大小和内存类型索引
-    vk::MemoryAllocateInfo allocInfo;
-    allocInfo.setAllocationSize(memoryRequirements.size)
-             .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, memoryProperties));
-    tempObj.m_memory = deviceHandle.allocateMemory(allocInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("Failed to allocate memory for vertices! ")
-
-    deviceHandle.bindBufferMemory(tempObj.m_buffer, tempObj.m_memory, 0);
+    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
+                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation,
+                    nullptr);
 
     auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                            vk::MemoryPropertyFlagBits::eHostVisible |
-                                            vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                            srcData);
+
     copyBufferToBuffer(stagingBuffer->m_buffer, tempObj.m_buffer, size);
     destroyBuffer(stagingBuffer.get());
+
+    if (!tempObj.m_buffer)
+        HUAN_CORE_BREAK("Failed to create buffer.");
 
     return createScope<EnableCreateScope>(tempObj);
 }
 
 Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                                         vk::MemoryPropertyFlags memoryProperties, void* srcData)
+                                                         void* srcData)
 {
     // 使用具备类实现私有构造函数
     struct EnableCreateScope : public vulkan::Buffer
@@ -75,24 +71,19 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk
               .setUsage(usage)
               .setSharingMode(vk::SharingMode::eExclusive);
 
-    tempObj.m_buffer = deviceHandle.createBuffer(bufferInfo);
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create vertex buffer");
+    VmaAllocationCreateInfo allocationCreateInfo = {};
+    allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getBufferMemoryRequirements(tempObj.m_buffer);
-    // 申请内存信息需要指定内存大小和内存类型索引
-    vk::MemoryAllocateInfo allocInfo;
-    allocInfo.setAllocationSize(memoryRequirements.size)
-             .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, memoryProperties));
-    tempObj.m_memory = deviceHandle.allocateMemory(allocInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory for vertices! ");
-
-    deviceHandle.bindBufferMemory(tempObj.m_buffer, tempObj.m_memory, 0);
-    tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, size);
+    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
+                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
 
     updateDataInBuffer(tempObj, srcData, size);
 
+    if (!tempObj.m_buffer)
+        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create buffer");
+    if (!tempObj.m_allocation)
+        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
     return createScope<EnableCreateScope>(tempObj);
 }
 
@@ -101,19 +92,18 @@ void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcD
 {
     if (srcData == nullptr)
     {
-        HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the data is nullptr.");
+        HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the srcData is nullptr.");
         return;
     }
     if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
     {
-        // Write in to
-        memcpy((char*)targetBuffer.m_data + dstOffset, (char*)srcData + srcOffset, size);
+        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation,
+                                  dstOffset, size);
     }
     else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
     {
         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                                vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                                srcData);
         copyBufferToBuffer(targetBuffer.m_buffer, stagingBuffer->m_buffer, size);
         destroyBuffer(stagingBuffer.get());
     }
@@ -129,13 +119,13 @@ void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData
     }
     if (targetImage.m_writeType == vulkan::Image::WriteType::Dynamic)
     {
-        memcpy((char*)targetImage.m_data + dstOffset, (char*)srcData + srcOffset, size);
+        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetImage.m_allocation,
+                                  dstOffset, size);
     }
     else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
     {
         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc,
-                                                vk::MemoryPropertyFlagBits::eHostVisible |
-                                                vk::MemoryPropertyFlagBits::eHostCoherent, srcData);
+                                                srcData);
         copyBufferToImage(stagingBuffer->m_buffer, targetImage.m_image, targetImage.m_extent);
         destroyBuffer(stagingBuffer.get());
     }
@@ -174,23 +164,15 @@ Scope<vulkan::Image> ResourceSystem::createImageByStagingBuffer(vk::ImageType im
                    .setQueueFamilyIndexCount(0)
                    .setPQueueFamilyIndices(nullptr)
                    .setFlags(vk::ImageCreateFlags());
-    tempObj.m_image = deviceHandle.createImage(imageCreateInfo);
-    if (!tempObj.m_image)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create image. ")
+    VmaAllocationCreateInfo memoryAllocateInfo = {};
+    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    memoryAllocateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+    VmaAllocationInfo allocationInfo = {};
+    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getImageMemoryRequirements(tempObj.m_image);
-    vk::MemoryAllocateInfo memoryAllocateInfo;
-    memoryAllocateInfo.setAllocationSize(memoryRequirements.size)
-                      .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, properties));
-    tempObj.m_memory = deviceHandle.allocateMemory(memoryAllocateInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate image memory. ")
-
-    deviceHandle.bindImageMemory(tempObj.m_image, tempObj.m_memory, 0);
-
-    auto stagingBuffer = createBufferNormal(memoryRequirements.size, vk::BufferUsageFlagBits::eTransferSrc,
-                                            vk::MemoryPropertyFlagBits::eHostVisible |
-                                            vk::MemoryPropertyFlagBits::eHostCoherent, data);
+    auto stagingBuffer = createBufferNormal(allocationInfo.size, vk::BufferUsageFlagBits::eTransferSrc,
+                                            data);
     // Transition the layout to vk::ImageLayout::eTransferDstOptimal for copying data to it.
     transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eUndefined, vk::ImageLayout::eTransferDstOptimal);
     copyBufferToImage(stagingBuffer->m_buffer, tempObj.m_image, extent);
@@ -234,30 +216,14 @@ Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, 
                    .setQueueFamilyIndexCount(0)
                    .setPQueueFamilyIndices(nullptr)
                    .setFlags(vk::ImageCreateFlags());
-    tempObj.m_image = deviceHandle.createImage(imageCreateInfo);
-    if (!tempObj.m_image)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create image. ")
+    
+    VmaAllocationCreateInfo memoryAllocateInfo = {};
+    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+    VmaAllocationInfo allocationInfo;
+    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
 
-    vk::MemoryRequirements memoryRequirements = deviceHandle.getImageMemoryRequirements(tempObj.m_image);
-    vk::MemoryAllocateInfo memoryAllocateInfo;
-    memoryAllocateInfo.setAllocationSize(memoryRequirements.size)
-                      .setMemoryTypeIndex(findRequiredMemoryTypeIndex(memoryRequirements.memoryTypeBits, properties));
-    tempObj.m_memory = deviceHandle.allocateMemory(memoryAllocateInfo);
-    if (!tempObj.m_memory)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate image memory. ")
-
-    deviceHandle.bindImageMemory(tempObj.m_image, tempObj.m_memory, 0);
-
-    // 对于Dynamic 的Image来说，必须映射到m_data
-    if (data)
-    {
-        tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, memoryRequirements.size);
-        memcpy(tempObj.m_data, data, memoryRequirements.size);
-    }
-    else
-    {
-        tempObj.m_data = deviceHandle.mapMemory(tempObj.m_memory, 0, memoryRequirements.size);
-    }
+    updateDataInImage(tempObj, data, allocationInfo.size);
 
     return createScope<EnableCreateScope>(tempObj);
 }
@@ -386,27 +352,18 @@ void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage,
 
 void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
 {
-    if (buffer->m_writeType == vulkan::Buffer::WriteType::Dynamic)
-        deviceHandle.unmapMemory(buffer->m_memory);
-    if (buffer->m_buffer)
-        deviceHandle.destroyBuffer(buffer->m_buffer);
-    if (buffer->m_memory)
-        deviceHandle.freeMemory(buffer->m_memory);
+    vmaDestroyBuffer(allocatorHandle, buffer->m_buffer, buffer->m_allocation);
 }
 
 void ResourceSystem::destroyImage(vulkan::Image* image)
 {
-    if (image->m_writeType == vulkan::Image::WriteType::Dynamic)
-        deviceHandle.unmapMemory(image->m_memory);
-    if (image->m_image)
-        deviceHandle.destroyImage(image->m_image);
-    if (image->m_memory)
-        deviceHandle.freeMemory(image->m_memory);
+    vmaDestroyImage(allocatorHandle, image->m_image, image->m_allocation);
 }
 
 ResourceSystem::ResourceSystem()
     : deviceHandle(HelloTriangleApplication::getInstance()->device),
-      physicalDeviceHandle(HelloTriangleApplication::getInstance()->physicalDevice)
+      physicalDeviceHandle(HelloTriangleApplication::getInstance()->physicalDevice),
+      allocatorHandle(HelloTriangleApplication::getInstance()->allocator)
 {
 
 }
