@@ -36,19 +36,21 @@ public:
                            vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
 
 
-    Scope<vulkan::Image> createImageByStagingBuffer(vk::ImageType imageType, const vk::Extent3D& extent,
+    Scope<vulkan::Image> createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent,
                                                     uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
                                                     vk::ImageUsageFlags usage,
-                                                    vk::MemoryPropertyFlags properties, void* data);
+                                                    vk::MemoryPropertyFlags properties, void* data = nullptr);
     Scope<vulkan::Image> createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
                                            vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-                                           vk::MemoryPropertyFlags properties, void* data);
+                                           vk::MemoryPropertyFlags properties, void* data = nullptr);
     vk::ImageView createImageView(vk::Image image, vk::ImageViewType viewType, vk::Format format,
                                   vk::ImageAspectFlags aspectFlags,
                                   uint32_t mipLevels);
     uint32_t findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout,
                                vk::ImageLayout newLayout);
+    bool hasStencilComponent(vk::Format format) const;
+    bool isDepthStencilFormat(vk::Format format) const;
 
     void copyBufferToBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
     void copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, vk::Extent3D extent);
