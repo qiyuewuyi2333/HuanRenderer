@@ -7,12 +7,12 @@
 #include <vulkan/vulkan.hpp>
 #include <optional>
 #include <vector>
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include "vk_mem_alloc.h"
 
 #include <huan/common.hpp>
 #include <huan/backend/swapchain.hpp>
-
 
 struct GLFWwindow;
 
@@ -22,11 +22,11 @@ namespace vulkan
 {
 class Image;
 struct Buffer;
-}
+} // namespace vulkan
 
 struct Vertex
 {
-    glm::vec2 m_pos;
+    glm::vec3 m_pos;
     glm::vec3 m_color;
     glm::vec2 m_texCoord;
 
@@ -43,7 +43,7 @@ struct Vertex
         std::vector<vk::VertexInputAttributeDescription> attributeDescriptions(3);
         attributeDescriptions[0].binding = 0;
         attributeDescriptions[0].location = 0;
-        attributeDescriptions[0].format = vk::Format::eR32G32Sfloat;
+        attributeDescriptions[0].format = vk::Format::eR32G32B32Sfloat;
         attributeDescriptions[0].offset = offsetof(Vertex, m_pos);
 
         attributeDescriptions[1].binding = 0;
@@ -55,7 +55,7 @@ struct Vertex
         attributeDescriptions[2].location = 2;
         attributeDescriptions[2].format = vk::Format::eR32G32Sfloat;
         attributeDescriptions[2].offset = offsetof(Vertex, m_texCoord);
-        
+
         return attributeDescriptions;
     }
 };
@@ -78,10 +78,9 @@ struct UniformBufferObject
     alignas(16) glm::mat4 m_proj;
 };
 
-
 class HUAN_API HelloTriangleApplication
 {
-public:
+  public:
     static HelloTriangleApplication* getInstance()
     {
         if (!instance)
@@ -106,7 +105,7 @@ public:
         return initialized;
     }
 
-private:
+  private:
     void initLogSystem();
     void initWindow();
 
@@ -129,7 +128,12 @@ private:
     void createDescriptorSetLayout();
     void createRenderPass();
     void createFramebuffers();
+    vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
+                             vk::FormatFeatureFlags features);
+    vk::Format findDepthFormat();
+    bool hasStencilComponent(vk::Format format);
 
+    void createDepthResources();
     void createTextureImage();
     void createTextureImageView();
     void createTextureSampler();
@@ -142,11 +146,10 @@ private:
     void createUniformBuffers();
     void createFrameData();
 
-
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapchain();
 
-public:
+  public:
     struct QueueFamilyIndices
     {
         std::optional<uint32_t> graphicsFamily;
@@ -199,6 +202,9 @@ public:
     Scope<vulkan::Image> m_textureImage;
     vk::ImageView m_textureImageView;
     vk::Sampler m_textureSampler;
+
+    Scope<vulkan::Image> m_depthImage;
+    vk::ImageView m_depthImageView;
     
     
     bool initialized = false;
@@ -206,13 +212,20 @@ public:
 
     // 顶点数据
     const std::vector<Vertex> m_vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}
+        {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+        {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+        {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+        {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
+            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
     };
 
-    const std::vector<uint32_t> m_indices = {0, 1, 2, 2, 3, 0};
+    const std::vector<uint32_t> m_indices = {
+        0, 1, 2, 2, 3, 0,
+        4, 5, 6, 6, 7, 4,
+    };
 };
 } // namespace huan
 
