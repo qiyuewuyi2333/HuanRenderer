@@ -480,7 +480,7 @@ void HelloTriangleApplication::createDescriptorSets()
     // NOTE: 所有的渲染帧使用相同的Image 资源
     vk::DescriptorImageInfo imageInfo;
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-        .setImageView(m_textureImageView)
+        .setImageView(m_textureImage->m_imageView)
         .setSampler(m_textureSampler);
 
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
@@ -760,7 +760,7 @@ void HelloTriangleApplication::createFramebuffers()
         .setLayers(1); // The number of layers of the imageView.
     for (size_t i = 0; i < swapchain->m_imageViews.size(); i++)
     {
-        std::array attachments = {swapchain->m_imageViews[i], m_depthImageView};
+        std::array attachments = {swapchain->m_imageViews[i], m_depthImage->m_imageView};
         framebufferInfo.setAttachments(attachments);
 
         m_swapchainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
@@ -804,7 +804,7 @@ void HelloTriangleApplication::createDepthResources()
         vk::ImageType::e2D, vk::Extent3D(swapchain->m_info.extent.width, swapchain->m_info.extent.height, 1), 1,
         depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
-    m_depthImageView = ResourceSystem::getInstance()->createImageView(m_depthImage->m_image, vk::ImageViewType::e2D,
+    ResourceSystem::getInstance()->createImageView(*m_depthImage, vk::ImageViewType::e2D,
                                                                       depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
     ResourceSystem::getInstance()->transitionImageLayout(
         m_depthImage->m_image, depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
@@ -830,10 +830,8 @@ void HelloTriangleApplication::createTextureImage()
 
 void HelloTriangleApplication::createTextureImageView()
 {
-    m_textureImageView = ResourceSystem::getInstance()->createImageView(
-        m_textureImage->m_image, vk::ImageViewType::e2D, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
-    if (!m_textureImageView)
-        HUAN_CORE_BREAK("Failed to create texture image view.")
+    ResourceSystem::getInstance()->createImageView(
+        *m_textureImage, vk::ImageViewType::e2D, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
 }
 
 void HelloTriangleApplication::createTextureSampler()
@@ -1079,7 +1077,7 @@ void HelloTriangleApplication::recreateSwapchain()
         device.destroyFramebuffer(swapchainFramebuffer);
     }
     swapchain.reset();
-    device.destroyImageView(m_depthImageView);
+    device.destroyImageView(m_depthImage->m_imageView);
     ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
 
     // Create
@@ -1107,8 +1105,7 @@ void HelloTriangleApplication::cleanup()
     device.destroyCommandPool(m_transferCommandPool);
     HUAN_CORE_INFO("CommandPool destroyed.")
     ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
-    device.destroyImageView(m_depthImageView);
-    HUAN_CORE_INFO("Depth image destroyed.")
+    HUAN_CORE_INFO("Depth image and view destroyed.")
     for (auto& framebuffer : m_swapchainFramebuffers)
     {
         device.destroyFramebuffer(framebuffer);
@@ -1130,10 +1127,8 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("Surface destroyed.")
     device.destroySampler(m_textureSampler);
     HUAN_CORE_INFO("Sampler destroyed.")
-    device.destroyImageView(m_textureImageView);
-    HUAN_CORE_INFO("m_textureImageView destroyed! ")
     ResourceSystem::getInstance()->destroyImage(m_textureImage.get());
-    HUAN_CORE_INFO("m_textureImage freed! ")
+    HUAN_CORE_INFO("m_textureImage and view freed! ")
     ResourceSystem::getInstance()->destroyBuffer(m_vertexBuffer.get());
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
     ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());

@@ -200,11 +200,9 @@ class HUAN_API HelloTriangleApplication
     Scope<vulkan::Buffer> m_indexBuffer;
 
     Scope<vulkan::Image> m_textureImage;
-    vk::ImageView m_textureImageView;
     vk::Sampler m_textureSampler;
 
     Scope<vulkan::Image> m_depthImage;
-    vk::ImageView m_depthImageView;
     
     
     bool initialized = false;

@@ -130,7 +130,7 @@ Scope<vulkan::Image> ResourceSystem::createImageDeviceLocal(vk::ImageType imageT
 {
     class EnableCreateScope final : public vulkan::Image
     {
-      public:
+    public:
         explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
         {
         }
@@ -142,18 +142,18 @@ Scope<vulkan::Image> ResourceSystem::createImageDeviceLocal(vk::ImageType imageT
 
     vk::ImageCreateInfo imageCreateInfo;
     imageCreateInfo.setImageType(imageType)
-        .setExtent(extent)
-        .setMipLevels(mipLevels)
-        .setArrayLayers(1)
-        .setFormat(format)
-        .setTiling(tiling)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        .setUsage(usage)
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setSharingMode(vk::SharingMode::eExclusive)
-        .setQueueFamilyIndexCount(0)
-        .setPQueueFamilyIndices(nullptr)
-        .setFlags(vk::ImageCreateFlags());
+                   .setExtent(extent)
+                   .setMipLevels(mipLevels)
+                   .setArrayLayers(1)
+                   .setFormat(format)
+                   .setTiling(tiling)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   .setUsage(usage)
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setSharingMode(vk::SharingMode::eExclusive)
+                   .setQueueFamilyIndexCount(0)
+                   .setPQueueFamilyIndices(nullptr)
+                   .setFlags(vk::ImageCreateFlags());
     VmaAllocationCreateInfo memoryAllocateInfo = {};
     memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
     memoryAllocateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
@@ -184,7 +184,7 @@ Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, 
 {
     class EnableCreateScope final : public vulkan::Image
     {
-      public:
+    public:
         explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
         {
         }
@@ -196,18 +196,18 @@ Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, 
 
     vk::ImageCreateInfo imageCreateInfo;
     imageCreateInfo.setImageType(imageType)
-        .setExtent(extent)
-        .setMipLevels(mipLevels)
-        .setArrayLayers(1)
-        .setFormat(format)
-        .setTiling(tiling)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        .setUsage(usage)
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setSharingMode(vk::SharingMode::eExclusive)
-        .setQueueFamilyIndexCount(0)
-        .setPQueueFamilyIndices(nullptr)
-        .setFlags(vk::ImageCreateFlags());
+                   .setExtent(extent)
+                   .setMipLevels(mipLevels)
+                   .setArrayLayers(1)
+                   .setFormat(format)
+                   .setTiling(tiling)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   .setUsage(usage)
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setSharingMode(vk::SharingMode::eExclusive)
+                   .setQueueFamilyIndexCount(0)
+                   .setPQueueFamilyIndices(nullptr)
+                   .setFlags(vk::ImageCreateFlags());
 
     VmaAllocationCreateInfo memoryAllocateInfo = {};
     memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
@@ -220,14 +220,13 @@ Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, 
     return createScope<EnableCreateScope>(tempObj);
 }
 
-vk::ImageView ResourceSystem::createImageView(vk::Image image, vk::ImageViewType viewType, vk::Format format,
-                                              vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
+void ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
+                                     vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
 {
-    vk::ImageViewCreateInfo imageViewCreateInfo;
-    imageViewCreateInfo.setImage(image).setViewType(viewType).setFormat(format).setSubresourceRange(
+    image.m_viewInfo.setImage(image.m_image).setViewType(viewType).setFormat(format).setSubresourceRange(
         vk::ImageSubresourceRange(aspectFlags, 0, mipLevels, 0, 1));
 
-    return deviceHandle.createImageView(imageViewCreateInfo);
+    image.m_imageView = deviceHandle.createImageView(image.m_viewInfo);
 }
 
 /**
@@ -264,11 +263,11 @@ void ResourceSystem::transitionImageLayout(vk::Image image, vk::Format format, v
 
     vk::ImageMemoryBarrier barrier = {};
     barrier.setOldLayout(oldLayout)
-        .setNewLayout(newLayout)
-        .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored) // 如果你不想转移队列族所有权，你可以指定为ignored
-        .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
-        .setImage(image)
-        .setSubresourceRange(vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+           .setNewLayout(newLayout)
+           .setSrcQueueFamilyIndex(vk::QueueFamilyIgnored) // 如果你不想转移队列族所有权，你可以指定为ignored
+           .setDstQueueFamilyIndex(vk::QueueFamilyIgnored)
+           .setImage(image)
+           .setSubresourceRange(vk::ImageSubresourceRange{vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
 
     if (isDepthStencilFormat(format))
     {
@@ -327,6 +326,7 @@ bool ResourceSystem::hasStencilComponent(const vk::Format format) const
 {
     return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 }
+
 bool ResourceSystem::isDepthStencilFormat(vk::Format format) const
 {
     return format == vk::Format::eD16Unorm || format == vk::Format::eD32Sfloat ||
@@ -356,12 +356,12 @@ void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage,
 
     vk::BufferImageCopy region;
     region.setBufferOffset(0)
-        .setBufferRowLength(0)
-        // NOTE: bufferRowLength and bufferImageHeight indicate the layout of the pixel data in the buffer
-        .setBufferImageHeight(0)
-        .setImageSubresource(vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1})
-        .setImageOffset({0, 0, 0})
-        .setImageExtent(extent);
+          .setBufferRowLength(0)
+          // NOTE: bufferRowLength and bufferImageHeight indicate the layout of the pixel data in the buffer
+          .setBufferImageHeight(0)
+          .setImageSubresource(vk::ImageSubresourceLayers{vk::ImageAspectFlagBits::eColor, 0, 0, 1})
+          .setImageOffset({0, 0, 0})
+          .setImageExtent(extent);
 
     commandBuffer.copyBufferToImage(srcBuffer, dstImage, vk::ImageLayout::eTransferDstOptimal, region);
 
@@ -375,6 +375,8 @@ void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
 
 void ResourceSystem::destroyImage(vulkan::Image* image)
 {
+    if (image->m_imageView)
+        deviceHandle.destroy(image->m_imageView);
     vmaDestroyImage(allocatorHandle, image->m_image, image->m_allocation);
 }
 

@@ -43,7 +43,7 @@ public:
     Scope<vulkan::Image> createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
                                            vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
                                            vk::MemoryPropertyFlags properties, void* data = nullptr);
-    vk::ImageView createImageView(vk::Image image, vk::ImageViewType viewType, vk::Format format,
+    void createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
                                   vk::ImageAspectFlags aspectFlags,
                                   uint32_t mipLevels);
     uint32_t findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);

@@ -13,9 +13,12 @@ namespace huan::vulkan
 Image::Image()
 {
     this->m_image = nullptr;
+    this->m_imageView = nullptr;
     this->m_allocation = nullptr;
     this->m_writeType = WriteType::Dynamic;
     this->m_extent = vk::Extent3D{0, 0, 0};
+
+    this->m_viewInfo = vk::ImageViewCreateInfo{};
 }
 
 Image::Image(Image& that)
@@ -23,9 +26,12 @@ Image::Image(Image& that)
     if (this != &that)
     {
         std::swap(this->m_image, that.m_image);
+        std::swap(this->m_imageView, that.m_imageView);
         std::swap(this->m_allocation, that.m_allocation);
         std::swap(this->m_writeType, that.m_writeType);
         std::swap(this->m_extent, that.m_extent);
+        
+        std::swap(this->m_viewInfo, that.m_viewInfo);
     }
 }
 
