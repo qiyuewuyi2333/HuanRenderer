@@ -29,7 +29,8 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/vulkan_resources.hpp
         src/backend/vulkan_resources.cpp
         src/backend/vmaUsage.cpp
-        )
+        src/utils/tiny_obj_loader_usage.cpp
+)
 
 if(${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)
