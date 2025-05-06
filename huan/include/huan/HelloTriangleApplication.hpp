@@ -14,6 +14,9 @@
 #include <huan/common.hpp>
 #include <huan/backend/swapchain.hpp>
 
+const std::string MODEL_PATH = "../../../../assets/Models/viking_room/viking_room.obj";
+const std::string TEXTURE_PATH = "../../../../assets/Models/viking_room/viking_room.png";
+
 struct GLFWwindow;
 
 namespace huan
@@ -80,7 +83,7 @@ struct UniformBufferObject
 
 class HUAN_API HelloTriangleApplication
 {
-  public:
+public:
     static HelloTriangleApplication* getInstance()
     {
         if (!instance)
@@ -105,7 +108,7 @@ class HUAN_API HelloTriangleApplication
         return initialized;
     }
 
-  private:
+private:
     void initLogSystem();
     void initWindow();
 
@@ -129,14 +132,14 @@ class HUAN_API HelloTriangleApplication
     void createRenderPass();
     void createFramebuffers();
     vk::Format findSupportedFormat(const std::vector<vk::Format>& candidates, vk::ImageTiling tiling,
-                             vk::FormatFeatureFlags features);
+                                   vk::FormatFeatureFlags features);
     vk::Format findDepthFormat();
     bool hasStencilComponent(vk::Format format);
 
     void createDepthResources();
     void createTextureImage();
-    void createTextureImageView();
     void createTextureSampler();
+    void loadModel();
     void createVertexBufferAndMemory();
     void createIndexBufferAndMemory();
     void createCommandPool();
@@ -149,7 +152,7 @@ class HUAN_API HelloTriangleApplication
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
     void recreateSwapchain();
 
-  public:
+public:
     struct QueueFamilyIndices
     {
         std::optional<uint32_t> graphicsFamily;
@@ -209,21 +212,9 @@ class HUAN_API HelloTriangleApplication
     bool m_framebufferResized = false;
 
     // 顶点数据
-    const std::vector<Vertex> m_vertices = {
-        {{-0.5f, -0.5f, 0}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-        {{0.5f, -0.5f, 0}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-        {{0.5f, 0.5f, 0}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-        {{-0.5f, 0.5f, 0}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}},
-            {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}
-    };
+    std::vector<Vertex> m_vertices = {};
 
-    const std::vector<uint32_t> m_indices = {
-        0, 1, 2, 2, 3, 0,
-        4, 5, 6, 6, 7, 4,
-    };
+    std::vector<uint32_t> m_indices = {};
 };
 } // namespace huan
 
