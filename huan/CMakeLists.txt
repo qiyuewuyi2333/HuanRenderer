@@ -30,6 +30,12 @@ add_library(${PROJECT_NAME} SHARED
         src/backend/vulkan_resources.cpp
         src/backend/vmaUsage.cpp
         src/utils/tiny_obj_loader_usage.cpp
+        src/framework/component.cpp
+        include/huan/framework/component.hpp
+        src/framework/node.cpp
+        include/huan/framework/node.hpp
+        src/framework/scene.cpp
+        include/huan/framework/scene.hpp
 )
 
 if(${HUAN_ENABLE_LOG})
