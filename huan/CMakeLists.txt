@@ -36,6 +36,14 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/framework/node.hpp
         src/framework/scene.cpp
         include/huan/framework/scene.hpp
+        src/framework/components/sub_mesh.cpp
+        include/huan/framework/components/sub_mesh.hpp
+        src/framework/components/material.cpp
+        include/huan/framework/components/material.hpp
+        src/framework/script.cpp
+        include/huan/framework/script.hpp
+        src/utils/file_system.cpp
+        include/huan/utils/file_system.hpp
 )
 
 if(${HUAN_ENABLE_LOG})
@@ -59,6 +67,10 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
 # VMA
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/third_party/VulkanMemoryAllocator/include)
 target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
+
+# GLSLang
+target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/third_party/glslang)
+target_link_libraries(${PROJECT_NAME} PRIVATE glslang)
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)

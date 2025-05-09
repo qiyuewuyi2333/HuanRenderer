@@ -10,7 +10,7 @@ template <class T>
 class DeferredSystem
 {
 public:
-    static T* getInstance()
+    inline static T* getInstance()
     {
         if (s_instance == nullptr)
         {

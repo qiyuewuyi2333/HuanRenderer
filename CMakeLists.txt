@@ -15,4 +15,5 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 add_subdirectory(sandbox)
 add_subdirectory(huan)
 add_subdirectory(third_party/VulkanMemoryAllocator)
+add_subdirectory(third_party/glslang)
 
