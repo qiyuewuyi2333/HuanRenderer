@@ -41,8 +41,8 @@ struct ShaderResourceQualifiers
     enum : uint32_t
     {
         None = 0,
-        Readable = 1 << 0,
-        Writable = 1 << 1,
+        NonReadable = 1 << 0,
+        NonWritable = 1 << 1,
     };
 };
 
@@ -56,10 +56,12 @@ struct ShaderResource
     ShaderResourceMode mode;
     uint32_t set;
     uint32_t binding;
+    uint32_t location;
     uint32_t inputAttachmentIndex;
     uint32_t vecSize; // vecSize = 1 for scalar, 2 for vec2, 3 for vec3, 4 for vec4
     uint32_t columns; // columns = 1 for scalar, 2 for mat2, 3 for mat3, 4 for mat4
     uint32_t arraySize; // arraySize = 0 for not array, 1 for array, 2 for array of array, ...
+    uint32_t offset;
     uint32_t size;
     uint32_t constantID;
     uint32_t qualifiers;
@@ -139,7 +141,6 @@ public:
     [[nodiscard]] const std::vector<uint32_t>& getBinary() const;
     [[nodiscard]] const std::string& getDebugName() const;
 
-    void setDebugName(const std::string& debugName);
     void setResourceMode(const std::string& resourceName, const ShaderResourceMode& resourceMode);
 
 private:

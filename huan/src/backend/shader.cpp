@@ -8,6 +8,8 @@
 #include <vulkan/vulkan.hpp>
 
 #include "huan/HelloTriangleApplication.hpp"
+#include "huan/backend/shader/glsl_compiler.hpp"
+#include "huan/backend/shader/spirv_reflection.hpp"
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_system.hpp"
 
@@ -186,47 +188,118 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
     }
-    
+
+    auto glslFinalSource = preprocessShader(source);
+    GLSLCompiler compiler;
+    if (!compiler.compileToSPIRV(stage, glslFinalSource, entryPoint, variant, m_binary, m_infoLog))
+    {
+        HUAN_CORE_ERROR("Renderer: Shader compilation failed for shader [{}]", glslSource.getFileName())
+        HUAN_CORE_BREAK(m_infoLog)
+    }
+    SPIRVReflection spirvReflection;
+    if (!spirvReflection.reflectShaderResources(stage, m_binary, variant, m_resources))
+    {
+        HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
+    }
+    std::hash<std::string> hash{};
+    m_id = hash(std::string(m_binary.begin(), m_binary.end()));
 }
 
 ShaderModule::ShaderModule(ShaderModule&& that)
+    : deviceHandle(that.deviceHandle),
+      m_id(that.m_id),
+      m_stage(that.m_stage),
+      m_entryPoint(that.m_entryPoint),
+      m_debugName(that.m_debugName),
+      m_infoLog(std::move(that.m_infoLog)),
+      m_resources(std::move(that.m_resources)),
+      m_binary(std::move(that.m_binary))
 {
+    that.m_stage = {};
 }
 
 size_t ShaderModule::getID() const
 {
+    return m_id;
 }
 
 vk::ShaderStageFlagBits ShaderModule::getStage() const
 {
+    return m_stage;
 }
 
 const std::string& ShaderModule::getEntryPoint() const
 {
+    return m_entryPoint;
 }
 
 const std::vector<ShaderResource>& ShaderModule::getResources() const
 {
+    return m_resources;
 }
 
 const std::string& ShaderModule::getInfoLog() const
 {
+    return m_infoLog;
 }
 
 const std::vector<uint32_t>& ShaderModule::getBinary() const
 {
+    return m_binary;
 }
 
 const std::string& ShaderModule::getDebugName() const
 {
-}
-
-void ShaderModule::setDebugName(const std::string& debugName)
-{
+    return m_debugName;
 }
 
 void ShaderModule::setResourceMode(const std::string& resourceName, const ShaderResourceMode& resourceMode)
 {
+    auto it = std::ranges::find_if(m_resources, [&resourceName](const ShaderResource& resource) {
+        return resource.name == resourceName;
+    });
+
+    if (it != m_resources.end())
+    {
+        if (resourceMode == ShaderResourceMode::Dynamic)
+        {
+            if (it->type == ShaderResourceType::BufferUniform ||
+                it->type == ShaderResourceType::BufferStorage)
+            {
+                it->mode = resourceMode;
+            }
+            else
+            {
+                HUAN_CORE_BREAK("Renderer: Resource[{}] does not support dynamic. ", resourceName)
+            }
+        }
+        else if (resourceMode == ShaderResourceMode::Static)
+        {
+            it->mode = resourceMode;
+        }
+        else if (resourceMode == ShaderResourceMode::UpdateAfterBind)
+        {
+            if (it->type == ShaderResourceType::Image ||
+                it->type == ShaderResourceType::ImageSampler ||
+                it->type == ShaderResourceType::ImageStorage)
+            {
+                it->mode = resourceMode;
+            }
+            else
+            {
+                HUAN_CORE_BREAK("Renderer: Resource[{}] does not support update after bind. ", resourceName)
+            }
+        }
+        else
+        {
+            HUAN_CORE_BREAK("Renderer: Resource[{}] does not support mode[{}].", resourceName,
+                            static_cast<int>(resourceMode))
+        }
+    }
+    else
+    {
+        HUAN_CORE_BREAK("Renderer: Resource[{}] does not exist.", resourceName)
+    }
 }
 
 };

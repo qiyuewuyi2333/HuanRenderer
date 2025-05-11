@@ -44,6 +44,10 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/framework/script.hpp
         src/utils/file_system.cpp
         include/huan/utils/file_system.hpp
+        src/backend/shader/glsl_compiler.cpp
+        include/huan/backend/shader/glsl_compiler.hpp
+        src/backend/shader/spirv_reflection.cpp
+        include/huan/backend/shader/spirv_reflection.hpp
 )
 
 if(${HUAN_ENABLE_LOG})

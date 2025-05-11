@@ -8,8 +8,14 @@
 #include <vulkan/vulkan.hpp>
 
 #include "material.hpp"
+#include "huan/backend/shader.hpp"
 #include "huan/backend/vulkan_buffer.hpp"
 #include "huan/framework/component.hpp"
+
+namespace huan::engine::vulkan
+{
+class Buffer;
+}
 
 namespace huan::engine
 {
@@ -24,7 +30,7 @@ class SubMesh : public Component
 {
 public:
     SubMesh(const std::string& name = {});
-    virtual ~SubMesh() = default;
+    virtual ~SubMesh() override = default;
     virtual std::type_index getType() const override;
     vk::IndexType m_indexType{};
     uint32_t m_indexOffset = 0;
@@ -32,15 +38,22 @@ public:
     uint32_t m_vertexIndices = 0;
     std::unordered_map<std::string, huan::vulkan::Buffer> m_vertexBuffers;
     Scope<vulkan::Buffer> m_indexBuffer;
-    
+
     void setAttribute(const std::string& name, const VertexAttribute& attribute);
-    VertexAttribute getAttribute(const std::string& name) const;
+    std::optional<VertexAttribute> getAttribute(const std::string& name) const;
 
     void setMaterial(const Material& material);
-    const Material*  getMaterial() const;
-    // TODO: 
-    // const Shader
-    
+    const Material* getMaterial() const;
+
+    const vulkan::ShaderVariant& getShaderVariant() const;
+    vulkan::ShaderVariant& getMutableShaderVariant();
+
+private:
+    std::unordered_map<std::string, VertexAttribute> m_vertexAttributes;
+    const Material* m_material = nullptr;
+    vulkan::ShaderVariant m_shaderVariant;
+
+    void computeShaderVariant();
 };
 }
 #endif //SUB_MESH_HPP
