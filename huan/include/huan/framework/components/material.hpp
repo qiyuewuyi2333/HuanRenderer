@@ -6,7 +6,7 @@
 #define MATERIAL_HPP
 #include "huan/framework/component.hpp"
 
-namespace huan::engine
+namespace huan::framework
 {
 class Material : public Component
 {

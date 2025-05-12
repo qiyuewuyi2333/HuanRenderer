@@ -5,7 +5,7 @@
 #include "huan/framework/component.hpp"
 
 
-namespace huan::engine
+namespace huan::framework
 {
 
 Component::Component(const std::string& name)

@@ -6,7 +6,7 @@
 
 #include "huan/framework/component.hpp"
 
-namespace huan::engine
+namespace huan::framework
 {
 
 Node::Node(size_t id, const std::string& name)

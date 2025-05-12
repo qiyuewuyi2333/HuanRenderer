@@ -1,6 +1,12 @@
 project(Renderer)
 message("Current Project name: " ${PROJECT_NAME})
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    option(HUAN_DEBUG "Debug mode" ON)
+else ()
+    option(HUAN_DEBUG "Debug mode" OFF)
+endif ()
+
 option(HUAN_ENABLE_LOG "Enable log" ON)
 option(HUAN_ENABLE_ASSERT "Enable assert" ON)
 
@@ -26,8 +32,8 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/vulkan_command.hpp
         src/backend/vulkan_command.cpp
         include/huan/common_templates/deferred_system.hpp
-        include/huan/backend/vulkan_resources.hpp
-        src/backend/vulkan_resources.cpp
+        include/huan/backend/resource/vulkan_resources.hpp
+        src/backend/resource/vulkan_resources.cpp
         src/backend/vmaUsage.cpp
         src/utils/tiny_obj_loader_usage.cpp
         src/framework/component.cpp
@@ -48,7 +54,18 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/shader/glsl_compiler.hpp
         src/backend/shader/spirv_reflection.cpp
         include/huan/backend/shader/spirv_reflection.hpp
+        src/framework/components/texture.cpp
+        include/huan/framework/components/texture.hpp
+        include/huan/backend/resource/vulkan_resource.hpp
+        include/huan/backend/resource/sampler.hpp
+        src/backend/resource/sampler.cpp
+        include/huan/backend/resource/allocated.hpp
 )
+
+if(${HUAN_DEBUG})
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_DEBUG)
+    message(STATUS "Build in Debug mode")
+endif ()
 
 if(${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)

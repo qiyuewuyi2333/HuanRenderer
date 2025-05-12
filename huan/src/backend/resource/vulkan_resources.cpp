@@ -1,7 +1,7 @@
 //
 // Created by 86156 on 4/21/2025.
 //
-#include "huan/backend/vulkan_resources.hpp"
+#include "../../../include/huan/backend/resource/vulkan_resources.hpp"
 
 #include "huan/HelloTriangleApplication.hpp"
 #include "huan/backend/vulkan_buffer.hpp"

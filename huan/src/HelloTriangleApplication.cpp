@@ -16,7 +16,7 @@
 #include "huan/utils/file_load.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "huan/backend/vulkan_image.hpp"
-#include "huan/backend/vulkan_resources.hpp"
+#include "../include/huan/backend/resource/vulkan_resources.hpp"
 #include "huan/utils/stb_image.h"
 #include "huan/utils/tiny_obj_loader.h"
 

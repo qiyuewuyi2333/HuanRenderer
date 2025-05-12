@@ -11,7 +11,7 @@
 #include "huan/framework/component.hpp"
 #include "huan/framework/node.hpp"
 
-namespace huan::engine
+namespace huan::framework
 {
 
 Scene::Scene(const std::string& name)

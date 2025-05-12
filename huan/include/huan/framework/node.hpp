@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace huan::engine
+namespace huan::framework
 {
 class Component;
 

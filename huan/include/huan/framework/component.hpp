@@ -8,7 +8,7 @@
 #include <typeindex>
 
 
-namespace huan::engine
+namespace huan::framework
 {
 class Component
 {

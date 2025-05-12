@@ -13,7 +13,7 @@
 #include "huan/common.hpp"
 
 
-namespace huan::engine
+namespace huan::framework
 {
 class Component;
 class Node;

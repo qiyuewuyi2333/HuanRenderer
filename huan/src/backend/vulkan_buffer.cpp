@@ -5,7 +5,7 @@
 #include <strstream>
 #include <huan/backend/vulkan_buffer.hpp>
 #include "huan/common.hpp"
-#include "huan/backend/vulkan_resources.hpp"
+#include "../../include/huan/backend/resource/vulkan_resources.hpp"
 
 namespace huan::vulkan
 {

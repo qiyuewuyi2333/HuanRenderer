@@ -5,7 +5,7 @@
 #include "huan/backend/shader/spirv_reflection.hpp"
 
 #include "huan/backend/shader.hpp"
-#include "huan/backend/vulkan_resources.hpp"
+#include "../../../include/huan/backend/resource/vulkan_resources.hpp"
 
 namespace huan::engine
 {
