@@ -59,7 +59,10 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/resource/vulkan_resource.hpp
         include/huan/backend/resource/sampler.hpp
         src/backend/resource/sampler.cpp
-        include/huan/backend/resource/allocated.hpp
+        include/huan/backend/resource/vulkan_allocated.hpp
+        include/huan/backend/resource/vulkan_builder_base.hpp
+        include/huan/backend/resource/vulkan_buffer.hpp
+        src/backend/resource/vulkan_buffer.cpp
 )
 
 if(${HUAN_DEBUG})
@@ -68,10 +71,10 @@ if(${HUAN_DEBUG})
 endif ()
 
 if(${HUAN_ENABLE_LOG})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_LOG)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_ENABLE_LOG)
 endif ()
 if(${HUAN_ENABLE_ASSERT})
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_ENABLE_ASSERT)
+    target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_ENABLE_ASSERT)
 endif ()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_BUILD_SHARED)

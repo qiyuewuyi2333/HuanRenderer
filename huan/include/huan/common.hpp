@@ -34,25 +34,31 @@
 #endif
 
 #ifdef HUAN_ENABLE_ASSERT
-#define HUAN_CLIENT_BREAK(...)                                                                                     \
+#define HUAN_CLIENT_BREAK(...)                                                                                         \
     {                                                                                                                  \
-        HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                   \
-        assert(false);                                                                                            \
+        HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                        \
+        assert(false);                                                                                                 \
     }
-#define HUAN_CORE_BREAK(...)                                                                               \
+#define HUAN_CORE_BREAK(...)                                                                                           \
     {                                                                                                                  \
-        HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                   \
-        assert(false); \
+        HUAN_CLIENT_ERROR("Assertion Failed: {0}", __VA_ARGS__)                                                        \
+        assert(false);                                                                                                 \
     }
 #define HUAN_CLIENT_ASSERT(x, ...)                                                                                     \
     {                                                                                                                  \
         if (!(x))                                                                                                      \
-            HUAN_CLIENT_BREAK(__VA_ARGS__)\
+            HUAN_CLIENT_BREAK(__VA_ARGS__)                                                                             \
     }
 #define HUAN_CORE_ASSERT(x, ...)                                                                                       \
     {                                                                                                                  \
         if (!(x))                                                                                                      \
-            HUAN_CORE_BREAK(__VA_ARGS__) \
+            HUAN_CORE_BREAK(__VA_ARGS__)                                                                               \
+    }
+#define VK_CHECK(x)                                                                                                    \
+    auto res = x;                                                                                                      \
+    if (res != VK_SUCCESS)                                                                                             \
+    {                                                                                                                  \
+        HUAN_CORE_BREAK("Vulkan Error: {0}, {1}", #x, res);                                                            \
     }
 #else
 #define HUAN_CLIENT_ASSERT(x, ...)
@@ -63,27 +69,27 @@
 
 namespace huan
 {
-    template <typename T>
-    using Scope = ::std::unique_ptr<T>;
+template <typename T>
+using Scope = ::std::unique_ptr<T>;
 
-    template <typename T, typename... Args>
-    Scope<T> createScope(Args&&... args)
-    {
-        return std::make_unique<T>(std::forward<Args>(args)...);
-    }
-
-    template <typename T>
-    using Ref = ::std::shared_ptr<T>;
-
-    template <typename T, typename... Args>
-    Ref<T> createRef(Args&&... args)
-    {
-        return std::make_shared<T>(std::forward<Args>(args)...);
-    }
-
-    template <typename T>
-    using Weak = ::std::weak_ptr<T>;
-
-    using RendererID = unsigned int;
+template <typename T, typename... Args>
+Scope<T> createScope(Args&&... args)
+{
+    return std::make_unique<T>(std::forward<Args>(args)...);
 }
-#endif //COMMON_HPP
+
+template <typename T>
+using Ref = ::std::shared_ptr<T>;
+
+template <typename T, typename... Args>
+Ref<T> createRef(Args&&... args)
+{
+    return std::make_shared<T>(std::forward<Args>(args)...);
+}
+
+template <typename T>
+using Weak = ::std::weak_ptr<T>;
+
+using RendererID = unsigned int;
+} // namespace huan
+#endif // COMMON_HPP

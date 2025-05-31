@@ -15,7 +15,7 @@ namespace huan::vulkan
 {
 class Image;
 class Buffer;
-}
+} // namespace huan::vulkan
 
 namespace huan
 {
@@ -24,28 +24,24 @@ class ResourceSystem final : public DeferredSystem<ResourceSystem>
 {
     friend class DeferredSystem<ResourceSystem>;
 
-public:
+  public:
     Scope<vulkan::Buffer> createBufferByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
                                                       vk::MemoryPropertyFlags memoryProperties,
                                                       void* srcData = nullptr);
-    Scope<vulkan::Buffer> createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                             void* srcData = nullptr);
+    Scope<vulkan::Buffer> createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage, void* srcData = nullptr);
     void updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
                             vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
-    void updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size,
-                           vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
+    void updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size, vk::DeviceSize srcOffset = 0,
+                           vk::DeviceSize dstOffset = 0);
 
-
-    Scope<vulkan::Image> createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent,
-                                                    uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
-                                                    vk::ImageUsageFlags usage,
-                                                    vk::MemoryPropertyFlags properties, void* data = nullptr);
+    Scope<vulkan::Image> createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
+                                                vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+                                                vk::MemoryPropertyFlags properties, void* data = nullptr);
     Scope<vulkan::Image> createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
                                            vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
                                            vk::MemoryPropertyFlags properties, void* data = nullptr);
     void createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
-                                  vk::ImageAspectFlags aspectFlags,
-                                  uint32_t mipLevels);
+                         vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
     uint32_t findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
     void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout,
                                vk::ImageLayout newLayout);
@@ -58,16 +54,14 @@ public:
     void destroyBuffer(vulkan::Buffer* buffer);
     void destroyImage(vulkan::Image* image);
 
-protected:
+  protected:
     explicit ResourceSystem();
 
     vk::Device& deviceHandle;
     vk::PhysicalDevice& physicalDeviceHandle;
     VmaAllocator& allocatorHandle;
-
 };
 
-}
+} // namespace huan
 
-
-#endif //VULKAN_RESOURCES_HPP
+#endif // VULKAN_RESOURCES_HPP

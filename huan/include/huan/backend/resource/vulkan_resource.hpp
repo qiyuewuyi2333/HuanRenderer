@@ -13,7 +13,7 @@ template <class ResourceType>
 class VulkanResource
 {
 public:
-    VulkanResource(vk::Device& deviceHandle, ResourceType handle = nullptr);
+    explicit VulkanResource(vk::Device& deviceHandle, ResourceType handle = nullptr);
     HUAN_NO_COPY(VulkanResource)
     VulkanResource(VulkanResource&& that) noexcept;
     VulkanResource& operator=(VulkanResource&& that) noexcept;
