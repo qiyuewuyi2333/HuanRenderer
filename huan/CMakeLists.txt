@@ -37,17 +37,17 @@ add_library(${PROJECT_NAME} SHARED
         src/backend/vmaUsage.cpp
         src/utils/tiny_obj_loader_usage.cpp
         src/framework/component.cpp
-        include/huan/framework/component.hpp
+        include/huan/scene_framework/component.hpp
         src/framework/node.cpp
-        include/huan/framework/node.hpp
+        include/huan/scene_framework/node.hpp
         src/framework/scene.cpp
-        include/huan/framework/scene.hpp
+        include/huan/scene_framework/scene.hpp
         src/framework/components/sub_mesh.cpp
-        include/huan/framework/components/sub_mesh.hpp
+        include/huan/scene_framework/components/sub_mesh.hpp
         src/framework/components/material.cpp
-        include/huan/framework/components/material.hpp
+        include/huan/scene_framework/components/material.hpp
         src/framework/script.cpp
-        include/huan/framework/script.hpp
+        include/huan/scene_framework/script.hpp
         src/utils/file_system.cpp
         include/huan/utils/file_system.hpp
         src/backend/shader/glsl_compiler.cpp
@@ -55,7 +55,7 @@ add_library(${PROJECT_NAME} SHARED
         src/backend/shader/spirv_reflection.cpp
         include/huan/backend/shader/spirv_reflection.hpp
         src/framework/components/texture.cpp
-        include/huan/framework/components/texture.hpp
+        include/huan/scene_framework/components/texture.hpp
         include/huan/backend/resource/vulkan_resource.hpp
         include/huan/backend/resource/sampler.hpp
         src/backend/resource/sampler.cpp

@@ -10,19 +10,15 @@
 namespace huan::engine
 {
 template <vulkan::ShaderResourceType T>
-void readShaderResource(const spirv_cross::Compiler& compiler,
-                         vk::ShaderStageFlagBits stage,
-                         const vulkan::ShaderVariant& variant,
-                         std::vector<vulkan::ShaderResource>& shaderResources)
+void readShaderResource(const spirv_cross::Compiler& compiler, vk::ShaderStageFlagBits stage,
+                        const vulkan::ShaderVariant& variant, std::vector<vulkan::ShaderResource>& shaderResources)
 {
     static_assert(false, "Not implemented! Read shader resources of type.");
 }
 
 template <spv::Decoration T>
-void readResourceDecoration(const spirv_cross::Compiler& compiler,
-                            const spirv_cross::Resource& resource,
-                            const vulkan::ShaderVariant& variant,
-                            vulkan::ShaderResource& shaderResources)
+void readResourceDecoration(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& resource,
+                            const vulkan::ShaderVariant& variant, vulkan::ShaderResource& shaderResources)
 {
     static_assert(false, "Not implemented! Read resources decoration of type.");
 }
@@ -81,29 +77,23 @@ void readResourceDecoration<spv::DecorationNonWritable>(const spirv_cross::Compi
     shaderResource.qualifiers |= vulkan::ShaderResourceQualifiers::NonWritable;
 }
 
-void readResourceVecSize(const spirv_cross::Compiler& compiler,
-                         const spirv_cross::Resource& resource,
-                         const vulkan::ShaderVariant& variant,
-                         vulkan::ShaderResource& shaderResource)
+void readResourceVecSize(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& resource,
+                         const vulkan::ShaderVariant& variant, vulkan::ShaderResource& shaderResource)
 {
     const auto& spirvType = compiler.get_type_from_variable(resource.id);
     shaderResource.vecSize = spirvType.vecsize;
     shaderResource.columns = spirvType.columns;
 }
 
-void readResourceArraySize(const spirv_cross::Compiler& compiler,
-                           const spirv_cross::Resource& resource,
-                           const vulkan::ShaderVariant& variant,
-                           vulkan::ShaderResource& shaderResource)
+void readResourceArraySize(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& resource,
+                           const vulkan::ShaderVariant& variant, vulkan::ShaderResource& shaderResource)
 {
     const auto& spirvType = compiler.get_type_from_variable(resource.id);
     shaderResource.arraySize = spirvType.array.empty() ? 1 : spirvType.array[0];
 }
 
-void readResourceSize(const spirv_cross::Compiler& compiler,
-                      const spirv_cross::Resource& resource,
-                      const vulkan::ShaderVariant& variant,
-                      vulkan::ShaderResource& shaderResource)
+void readResourceSize(const spirv_cross::Compiler& compiler, const spirv_cross::Resource& resource,
+                      const vulkan::ShaderVariant& variant, vulkan::ShaderResource& shaderResource)
 {
     const auto& spirvType = compiler.get_type_from_variable(resource.id);
 
@@ -116,13 +106,10 @@ void readResourceSize(const spirv_cross::Compiler& compiler,
     shaderResource.size = compiler.get_declared_struct_size_runtime_array(spirvType, arraySize);
 }
 
-void readResourceSize(const spirv_cross::Compiler& compiler,
-                      const spirv_cross::SPIRConstant& constant,
-                      const vulkan::ShaderVariant& variant,
-                      vulkan::ShaderResource& shaderResource)
+void readResourceSize(const spirv_cross::Compiler& compiler, const spirv_cross::SPIRConstant& constant,
+                      const vulkan::ShaderVariant& variant, vulkan::ShaderResource& shaderResource)
 {
-    const auto& spirvType = compiler.get_type(constant.constant_type);
-    switch (spirvType.basetype)
+    switch (compiler.get_type(constant.constant_type).basetype)
     {
     case spirv_cross::SPIRType::Boolean:
         shaderResource.size = 1;
@@ -143,9 +130,9 @@ void readResourceSize(const spirv_cross::Compiler& compiler,
 
 template <>
 void readShaderResource<vulkan::ShaderResourceType::Input>(const spirv_cross::Compiler& compiler,
-                                                            vk::ShaderStageFlagBits stage,
-                                                            const vulkan::ShaderVariant& variant,
-                                                            std::vector<vulkan::ShaderResource>& shaderResources)
+                                                           vk::ShaderStageFlagBits stage,
+                                                           const vulkan::ShaderVariant& variant,
+                                                           std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().stage_inputs)
     {
@@ -162,13 +149,12 @@ void readShaderResource<vulkan::ShaderResourceType::Input>(const spirv_cross::Co
     }
 }
 
-template<>
-void readShaderResource<vulkan::ShaderResourceType::InputAttachment>(const spirv_cross::Compiler& compiler,
-                                                                      vk::ShaderStageFlagBits /*stage*/,
-                                                                      const vulkan::ShaderVariant& variant,
-                                                                      std::vector<vulkan::ShaderResource>& shaderResources)
+template <>
+void readShaderResource<vulkan::ShaderResourceType::InputAttachment>(
+    const spirv_cross::Compiler& compiler, vk::ShaderStageFlagBits /*stage*/, const vulkan::ShaderVariant& variant,
+    std::vector<vulkan::ShaderResource>& shaderResources)
 {
-    auto subpassResources = compiler.get_shader_resources().subpass_inputs;
+    const auto subpassResources = compiler.get_shader_resources().subpass_inputs;
     for (auto& resource : subpassResources)
     {
         vulkan::ShaderResource shaderResource{};
@@ -185,11 +171,11 @@ void readShaderResource<vulkan::ShaderResourceType::InputAttachment>(const spirv
     }
 }
 
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::Output>(const spirv_cross::Compiler& compiler,
-                                                              vk::ShaderStageFlagBits stage,
-                                                              const vulkan::ShaderVariant& variant,
-                                                              std::vector<vulkan::ShaderResource>& shaderResources)
+                                                            vk::ShaderStageFlagBits stage,
+                                                            const vulkan::ShaderVariant& variant,
+                                                            std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().stage_outputs)
     {
@@ -206,11 +192,11 @@ void readShaderResource<vulkan::ShaderResourceType::Output>(const spirv_cross::C
     }
 }
 
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::Image>(const spirv_cross::Compiler& compiler,
-                                                            vk::ShaderStageFlagBits stage,
-                                                            const vulkan::ShaderVariant& variant,
-                                                            std::vector<vulkan::ShaderResource>& shaderResources)
+                                                           vk::ShaderStageFlagBits stage,
+                                                           const vulkan::ShaderVariant& variant,
+                                                           std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().separate_images)
     {
@@ -225,11 +211,11 @@ void readShaderResource<vulkan::ShaderResourceType::Image>(const spirv_cross::Co
     }
 }
 
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::ImageSampler>(const spirv_cross::Compiler& compiler,
-                                                                   vk::ShaderStageFlagBits stage,
-                                                                   const vulkan::ShaderVariant& variant,
-                                                                   std::vector<vulkan::ShaderResource>& shaderResources)
+                                                                  vk::ShaderStageFlagBits stage,
+                                                                  const vulkan::ShaderVariant& variant,
+                                                                  std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().separate_samplers)
     {
@@ -244,11 +230,11 @@ void readShaderResource<vulkan::ShaderResourceType::ImageSampler>(const spirv_cr
     }
 }
 
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::ImageStorage>(const spirv_cross::Compiler& compiler,
-                                                                   vk::ShaderStageFlagBits stage,
-                                                                   const vulkan::ShaderVariant& variant,
-                                                                   std::vector<vulkan::ShaderResource>& shaderResources)
+                                                                  vk::ShaderStageFlagBits stage,
+                                                                  const vulkan::ShaderVariant& variant,
+                                                                  std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().storage_images)
     {
@@ -263,11 +249,11 @@ void readShaderResource<vulkan::ShaderResourceType::ImageStorage>(const spirv_cr
     }
 }
 
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::BufferUniform>(const spirv_cross::Compiler& compiler,
-                                                                    vk::ShaderStageFlagBits stage,
-                                                                    const vulkan::ShaderVariant& variant,
-                                                                    std::vector<vulkan::ShaderResource>& shaderResources)
+                                                                   vk::ShaderStageFlagBits stage,
+                                                                   const vulkan::ShaderVariant& variant,
+                                                                   std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().uniform_buffers)
     {
@@ -282,11 +268,11 @@ void readShaderResource<vulkan::ShaderResourceType::BufferUniform>(const spirv_c
         shaderResources.push_back(shaderResource);
     }
 }
-template<>
+template <>
 void readShaderResource<vulkan::ShaderResourceType::BufferStorage>(const spirv_cross::Compiler& compiler,
-                                                                    vk::ShaderStageFlagBits stage,
-                                                                    const vulkan::ShaderVariant& variant,
-                                                                    std::vector<vulkan::ShaderResource>& shaderResources)
+                                                                   vk::ShaderStageFlagBits stage,
+                                                                   const vulkan::ShaderVariant& variant,
+                                                                   std::vector<vulkan::ShaderResource>& shaderResources)
 {
     for (const auto& resource : compiler.get_shader_resources().storage_buffers)
     {
@@ -317,7 +303,7 @@ bool SPIRVReflection::reflectShaderResources(vk::ShaderStageFlagBits stage, cons
     parseShaderResources(compiler, stage, shaderVariant, shaderResources);
     parsePushConstants(compiler, stage, shaderVariant, shaderResources);
     parseSpecializationConstants(compiler, stage, shaderVariant, shaderResources);
-    
+
     return true;
 }
 
@@ -327,13 +313,13 @@ void SPIRVReflection::parseShaderResources(const spirv_cross::Compiler& compiler
 {
     readShaderResource<vulkan::ShaderResourceType::Input>(compiler, stage, variant, shaderResources);
     readShaderResource<vulkan::ShaderResourceType::InputAttachment>(compiler, stage, variant, shaderResources);
-    
+
     readShaderResource<vulkan::ShaderResourceType::Output>(compiler, stage, variant, shaderResources);
-    
+
     readShaderResource<vulkan::ShaderResourceType::Image>(compiler, stage, variant, shaderResources);
     readShaderResource<vulkan::ShaderResourceType::ImageSampler>(compiler, stage, variant, shaderResources);
     readShaderResource<vulkan::ShaderResourceType::ImageStorage>(compiler, stage, variant, shaderResources);
-    
+
     readShaderResource<vulkan::ShaderResourceType::BufferUniform>(compiler, stage, variant, shaderResources);
     readShaderResource<vulkan::ShaderResourceType::BufferStorage>(compiler, stage, variant, shaderResources);
 }
@@ -342,12 +328,12 @@ void SPIRVReflection::parsePushConstants(const spirv_cross::Compiler& compiler, 
                                          const vulkan::ShaderVariant& variant,
                                          std::vector<vulkan::ShaderResource>& shaderResources)
 {
-    for (auto& resource  : compiler.get_shader_resources().push_constant_buffers)
+    for (auto& resource : compiler.get_shader_resources().push_constant_buffers)
     {
         const auto& spirvType = compiler.get_type_from_variable(resource.id);
 
         uint32_t offset = std::numeric_limits<uint32_t>::max();
-        for (auto i  = 0; i < spirvType.member_types.size(); ++i)
+        for (auto i = 0; i < spirvType.member_types.size(); ++i)
         {
             auto memberOffset = compiler.get_member_decoration(resource.base_type_id, i, spv::DecorationOffset);
             offset = std::min(offset, memberOffset);
@@ -384,4 +370,4 @@ void SPIRVReflection::parseSpecializationConstants(const spirv_cross::Compiler& 
         shaderResources.push_back(shaderResource);
     }
 }
-}
+} // namespace huan::engine

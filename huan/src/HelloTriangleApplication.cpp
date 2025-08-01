@@ -246,7 +246,7 @@ void HelloTriangleApplication::createInstance()
     infoString.str("");
 
     // Prepare the required extensions and layers
-    std::vector<const char*> requiredInstanceExtensions = getRequiredInstanceExtensions();
+    const std::vector<const char*> requiredInstanceExtensions = getRequiredInstanceExtensions();
     std::vector<const char*> requiredLayers;
     infoString << "\nRequired Instance Extensions: \n";
     for (const auto& requiredExtension : requiredInstanceExtensions)

@@ -7,25 +7,24 @@
 #include <string>
 #include <typeindex>
 
-
 namespace huan::framework
 {
 class Component
 {
-public:
+  public:
     Component() = default;
-    Component(const std::string& name);
+    explicit Component(std::string&& name);
+    explicit Component(const std::string& name);
     Component(Component&& that) noexcept = default;
 
     virtual ~Component() = default;
     [[nodiscard]] const std::string& getName() const;
     [[nodiscard]] virtual std::type_index getType() const = 0;
 
-private:
+  private:
     std::string m_name;
 };
 
-}
+} // namespace huan::framework
 
-
-#endif //COMPONENT_HPP
+#endif // COMPONENT_HPP

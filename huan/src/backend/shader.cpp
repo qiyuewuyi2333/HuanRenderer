@@ -79,7 +79,7 @@ std::string_view ShaderSource::getFileName() const
 void ShaderSource::setSource(std::string_view source)
 {
     m_source = source;
-    std::hash<std::string> hash;
+    constexpr std::hash<std::string> hash;
     m_id = hash(m_source);
 }
 
@@ -183,13 +183,13 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
     }
-    auto source = glslSource.getSource();
+    const auto source = glslSource.getSource();
     if (source.empty())
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
     }
 
-    auto glslFinalSource = preprocessShader(source);
+    const auto glslFinalSource = preprocessShader(source);
     GLSLCompiler compiler;
     if (!compiler.compileToSPIRV(stage, glslFinalSource, entryPoint, variant, m_binary, m_infoLog))
     {
@@ -197,7 +197,7 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
         HUAN_CORE_BREAK(m_infoLog)
     }
     SPIRVReflection spirvReflection;
-    if (!spirvReflection.reflectShaderResources(stage, m_binary, variant, m_resources))
+    if (!SPIRVReflection::reflectShaderResources(stage, m_binary, variant, m_resources))
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
     }
@@ -205,7 +205,7 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
     m_id = hash(std::string(m_binary.begin(), m_binary.end()));
 }
 
-ShaderModule::ShaderModule(ShaderModule&& that)
+ShaderModule::ShaderModule(ShaderModule&& that) noexcept
     : deviceHandle(that.deviceHandle),
       m_id(that.m_id),
       m_stage(that.m_stage),

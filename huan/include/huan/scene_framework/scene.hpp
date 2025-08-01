@@ -12,7 +12,6 @@
 
 #include "huan/common.hpp"
 
-
 namespace huan::framework
 {
 class Component;
@@ -23,7 +22,7 @@ class Node;
  */
 class Scene
 {
-public:
+  public:
     Scene() = default;
     Scene(const std::string& name);
     Scene(Scene&& that) noexcept = default;
@@ -58,7 +57,7 @@ public:
     void setRootNode(Node* root);
     [[nodiscard]] Node* getRootNode() const;
 
-private:
+  private:
     std::string m_name;
     std::vector<Scope<Node>> m_nodes;
     Node* m_root = nullptr;
@@ -70,9 +69,7 @@ void Scene::setComponents(std::vector<Scope<T>>&& components)
 {
     std::vector<Scope<Component>> result(components.size());
     std::transform(components.begin(), components.end(), result.begin(),
-                   [](Scope<T>& component) -> Scope<Component> {
-                       return Scope<Component>(std::move(component));
-                   });
+                   [](Scope<T>& component) -> Scope<Component> { return Scope<Component>(std::move(component)); });
     setComponents(typeid(T), std::move(result));
 }
 
@@ -92,9 +89,7 @@ std::vector<T*> Scene::getComponents() const
 
         result.resize(scene_components.size());
         std::transform(scene_components.begin(), scene_components.end(), result.begin(),
-                       [](const Scope<Component>& component) -> T* {
-                           return dynamic_cast<T*>(component.get());
-                       });
+                       [](const Scope<Component>& component) -> T* { return dynamic_cast<T*>(component.get()); });
     }
     return result;
 }
@@ -105,6 +100,6 @@ bool Scene::hasComponent() const
     return hasComponent(typeid(T));
 }
 
-}
+} // namespace huan::framework
 
-#endif //SCENE_HPP
+#endif // SCENE_HPP

@@ -113,8 +113,8 @@ private:
     void initWindow();
 
     void initVulkan();
-    std::vector<const char*> getRequiredInstanceExtensions();
-    std::vector<const char*> getRequiredDeviceExtensions();
+    [[nodiscard]] static std::vector<const char*> getRequiredInstanceExtensions();
+    [[nodiscard]] static std::vector<const char*> getRequiredDeviceExtensions();
     void createInstance();
     void createDebugMessenger();
     void pickPhysicalDevice();

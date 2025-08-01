@@ -47,9 +47,9 @@ struct ShaderResourceQualifiers
 };
 
 /**
- * Resource description used in shader 
+ * Resource description used in shader
  */
-struct ShaderResource
+struct ShaderResource final
 {
     vk::ShaderStageFlags stage;
     ShaderResourceType type;
@@ -58,8 +58,8 @@ struct ShaderResource
     uint32_t binding;
     uint32_t location;
     uint32_t inputAttachmentIndex;
-    uint32_t vecSize; // vecSize = 1 for scalar, 2 for vec2, 3 for vec3, 4 for vec4
-    uint32_t columns; // columns = 1 for scalar, 2 for mat2, 3 for mat3, 4 for mat4
+    uint32_t vecSize;   // vecSize = 1 for scalar, 2 for vec2, 3 for vec3, 4 for vec4
+    uint32_t columns;   // columns = 1 for scalar, 2 for mat2, 3 for mat3, 4 for mat4
     uint32_t arraySize; // arraySize = 0 for not array, 1 for array, 2 for array of array, ...
     uint32_t offset;
     uint32_t size;
@@ -68,12 +68,12 @@ struct ShaderResource
     std::string name;
 };
 
-class ShaderSource
+class ShaderSource final
 {
-public:
+  public:
     ShaderSource() = default;
 
-    ShaderSource(const std::string& fileName);
+    explicit ShaderSource(const std::string& fileName);
 
     [[nodiscard]] size_t getID() const;
 
@@ -83,17 +83,17 @@ public:
 
     [[nodiscard]] std::string_view getSource() const;
 
-private:
-    uint32_t m_id;
+  private:
+    uint32_t m_id{};
 
     std::string m_fileName;
 
     std::string m_source;
 };
 
-class ShaderVariant
+class ShaderVariant final
 {
-public:
+  public:
     ShaderVariant() = default;
     ShaderVariant(std::string&& preamble, std::vector<std::string>&& processes);
     [[nodiscard]] uint32_t getID() const;
@@ -113,11 +113,11 @@ public:
 
     void clear();
 
-private:
+  private:
     void updateID();
 
-private:
-    uint32_t m_id;
+  private:
+    uint32_t m_id{};
     std::string m_preamble;
     std::vector<std::string> m_processes;
     std::unordered_map<std::string, size_t> m_runtimeArraySizes;
@@ -125,11 +125,11 @@ private:
 
 class ShaderModule
 {
-public:
+  public:
     ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, const ShaderSource& glslSource,
                  const std::string& entryPoint, const ShaderVariant& variant);
     ShaderModule(const ShaderModule&) = delete;
-    ShaderModule(ShaderModule&& that);
+    ShaderModule(ShaderModule&& that) noexcept;
     ShaderModule& operator=(const ShaderModule&) = delete;
     ShaderModule& operator=(ShaderModule&& that) = delete;
 
@@ -143,7 +143,7 @@ public:
 
     void setResourceMode(const std::string& resourceName, const ShaderResourceMode& resourceMode);
 
-private:
+  private:
     vk::Device& deviceHandle;
     uint32_t m_id{};
     vk::ShaderStageFlagBits m_stage{};
@@ -154,5 +154,5 @@ private:
     std::vector<uint32_t> m_binary{}; // spir-v code
 };
 
-}
-#endif //SHADER_HPP
+} // namespace huan::engine::vulkan
+#endif // SHADER_HPP

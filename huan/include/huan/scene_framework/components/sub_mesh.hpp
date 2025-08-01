@@ -10,7 +10,7 @@
 #include "material.hpp"
 #include "huan/backend/shader.hpp"
 #include "huan/backend/vulkan_buffer.hpp"
-#include "huan/framework/component.hpp"
+#include "huan/scene_framework/component.hpp"
 
 namespace huan::engine::vulkan
 {

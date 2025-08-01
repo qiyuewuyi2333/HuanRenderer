@@ -2,9 +2,9 @@
 // Created by 86156 on 5/7/2025.
 //
 
-#include "huan/framework/node.hpp"
+#include "huan/scene_framework/node.hpp"
 
-#include "huan/framework/component.hpp"
+#include "huan/scene_framework/component.hpp"
 
 namespace huan::framework
 {

@@ -4,12 +4,12 @@
 
 #include "huan/common.hpp"
 #include "huan/log/Log.hpp"
-#include "huan/framework/scene.hpp"
+#include "huan/scene_framework/scene.hpp"
 
 #include <queue>
 
-#include "huan/framework/component.hpp"
-#include "huan/framework/node.hpp"
+#include "huan/scene_framework/component.hpp"
+#include "huan/scene_framework/node.hpp"
 
 namespace huan::framework
 {
