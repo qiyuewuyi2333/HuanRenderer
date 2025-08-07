@@ -1,12 +1,12 @@
 //
 // Created by 86156 on 4/21/2025.
 //
-#include "../../../include/huan/backend/resource/vulkan_resources.hpp"
+#include "../../../include/huan/backend/resource/resource_system.hpp"
 
 #include "huan/HelloTriangleApplication.hpp"
-#include "huan/backend/vulkan_buffer.hpp"
 #include "huan/backend/vulkan_command.hpp"
 #include "huan/backend/vulkan_image.hpp"
+#include "huan/backend/resource/vulkan_buffer.hpp"
 #include "huan/log/Log.hpp"
 
 namespace huan
@@ -16,36 +16,6 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize
                                                                   vk::MemoryPropertyFlags memoryProperties,
                                                                   void* srcData)
 {
-    // 使用具备类实现私有构造函数
-    struct EnableCreateScope : public vulkan::Buffer
-    {
-        explicit EnableCreateScope(Buffer& that) : Buffer(that)
-        {
-        }
-    };
-
-    vulkan::Buffer tempObj;
-    tempObj.m_writeType = vulkan::Buffer::WriteType::Static;
-
-    vk::BufferCreateInfo bufferInfo;
-    bufferInfo.setSize(size).setUsage(usage); // If you want to use a staging buffer to copy from
-
-    // NOTE: 注意一定要使用 = {} 初始化，调用默认构造，否则会报错（出现无法预料的行为）
-    VmaAllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    // 因为我是Prefer_Device，所以会被隐式指定了Allow_Transfer_Instead_Bit, 于是也就需要去指定其它的标志位按照报错
-
-    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
-                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
-
-    auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
-
-    copyBufferToBuffer(stagingBuffer->m_buffer, tempObj.m_buffer, size);
-    destroyBuffer(stagingBuffer.get());
-
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("Failed to create buffer.");
-
     return createScope<EnableCreateScope>(tempObj);
 }
 
@@ -79,6 +49,20 @@ Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk
     if (!tempObj.m_allocation)
         HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
     return createScope<EnableCreateScope>(tempObj);
+}
+
+vulkan::Buffer ResourceSystem::createStagingBuffer(vk::DeviceSize size, const void* srcData) const
+{
+    vulkan::BufferBuilder builder(size);
+    builder.setVmaFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT )
+    .setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+    vulkan::Buffer res(deviceHandle, builder);
+    if (srcData != nullptr)
+    {
+        res.updateWithMapping(srcData, size);
+    }
+
+    return res;
 }
 
 void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,

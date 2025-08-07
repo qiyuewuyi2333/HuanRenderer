@@ -9,11 +9,11 @@ namespace huan::vulkan
 {
 class Sampler final : public VulkanResource<vk::Sampler>
 {
-public:
+  public:
     Sampler(vk::Device& deviceHandle, const vk::SamplerCreateInfo& info);
     HUAN_NO_COPY(Sampler)
-    Sampler(Sampler&& that);
+    Sampler(Sampler&& that) noexcept;
     Sampler& operator=(Sampler&& that) = delete;
     ~Sampler() override;
 };
-}
+} // namespace huan::vulkan

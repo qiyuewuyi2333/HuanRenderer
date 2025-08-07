@@ -24,7 +24,7 @@ namespace huan
 namespace vulkan
 {
 class Image;
-struct Buffer;
+class Buffer;
 } // namespace vulkan
 
 struct Vertex

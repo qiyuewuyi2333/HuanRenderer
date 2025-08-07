@@ -15,26 +15,26 @@ class Component;
 
 class Node
 {
-public:
+  public:
     Node(size_t id, const std::string& name);
     virtual ~Node() = default;
     [[nodiscard]] size_t getId() const;
     [[nodiscard]] std::string getName() const;
-    
+
     void setParent(Node* parent);
     [[nodiscard]] Node* getParent() const;
     void addChild(Node* child);
     [[nodiscard]] const std::vector<Node*>& getChildren() const;
-    
+
     void setComponent(Component* component);
-    template<typename T>
+    template <typename T>
     T* getComponent() const;
     [[nodiscard]] Component* getComponent(std::type_index type) const;
-    template<typename T>
+    template <typename T>
     bool hasComponent();
     [[nodiscard]] bool hasComponent(std::type_index type) const;
-    
-private:
+
+  private:
     const size_t m_id;
     std::string m_name;
     Node* m_parent = nullptr;
@@ -54,6 +54,6 @@ bool Node::hasComponent()
     return hasComponent(typeid(T));
 }
 
-}
+} // namespace huan::framework
 
-#endif //NODE_HPP
+#endif // NODE_HPP

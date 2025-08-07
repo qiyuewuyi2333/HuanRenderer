@@ -32,8 +32,8 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/vulkan_command.hpp
         src/backend/vulkan_command.cpp
         include/huan/common_templates/deferred_system.hpp
-        include/huan/backend/resource/vulkan_resources.hpp
-        src/backend/resource/vulkan_resources.cpp
+        include/huan/backend/resource/resource_system.hpp
+        src/backend/resource/resource_system.cpp
         src/backend/vmaUsage.cpp
         src/utils/tiny_obj_loader_usage.cpp
         src/framework/component.cpp

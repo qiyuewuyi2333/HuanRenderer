@@ -11,7 +11,7 @@
 
 #include <vulkan/vulkan.hpp>
 
-namespace huan::engine::vulkan
+namespace huan::engine::run_time::vulkan
 {
 enum class ShaderResourceType
 {

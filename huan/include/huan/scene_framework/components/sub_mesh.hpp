@@ -8,16 +8,24 @@
 #include <vulkan/vulkan.hpp>
 
 #include "material.hpp"
+#include "huan/common.hpp"
 #include "huan/backend/shader.hpp"
-#include "huan/backend/vulkan_buffer.hpp"
 #include "huan/scene_framework/component.hpp"
+#include "huan/scene_framework/node.hpp"
+
+#include <optional>
+
+namespace huan::vulkan
+{
+class Buffer;
+}
 
 namespace huan::engine::vulkan
 {
 class Buffer;
 }
 
-namespace huan::engine
+namespace huan::framework::scene_graph
 {
 struct VertexAttribute
 {
@@ -45,13 +53,13 @@ public:
     void setMaterial(const Material& material);
     const Material* getMaterial() const;
 
-    const vulkan::ShaderVariant& getShaderVariant() const;
-    vulkan::ShaderVariant& getMutableShaderVariant();
+    const engine::run_time::vulkan::ShaderVariant& getShaderVariant() const;
+    engine::run_time::vulkan::ShaderVariant& getMutableShaderVariant();
 
 private:
     std::unordered_map<std::string, VertexAttribute> m_vertexAttributes;
     const Material* m_material = nullptr;
-    vulkan::ShaderVariant m_shaderVariant;
+    engine::run_time::vulkan::ShaderVariant m_shaderVariant;
 
     void computeShaderVariant();
 };

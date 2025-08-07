@@ -7,7 +7,7 @@
 
 #include "huan/common.hpp"
 
-namespace huan::vulkan
+namespace huan::engine::run_time::vulkan
 {
 template <class ResourceType>
 class VulkanResource
@@ -20,18 +20,19 @@ public:
     virtual ~VulkanResource() = default;
 
     [[nodiscard]] std::string_view getDebugName() const;
+    void setDebugName(std::string_view debugName);
     ResourceType& getHandle();
-    vk::Device& getDeviceHandle();
+    [[nodiscard]] vk::Device& getDeviceHandle() const;
     void setHandle(ResourceType handle);
     [[nodiscard]] const ResourceType& getHandle() const;
     [[nodiscard]] uint64_t getHandleU64() const;
 
 private:
+    vk::Device& m_deviceHandle;
+    ResourceType m_resourceHandle;
 #ifdef HUAN_DEBUG
     std::string m_debugName;
 #endif
-    vk::Device& m_deviceHandle;
-    ResourceType m_resourceHandle;
 };
 
 template <class ResourceType>
@@ -44,7 +45,7 @@ template <class ResourceType>
 VulkanResource<ResourceType>::VulkanResource(VulkanResource&& that) noexcept
     : m_deviceHandle(that.m_deviceHandle), m_resourceHandle(that.m_resourceHandle)
 #ifdef HUAN_DEBUG
-    , m_debugName(std::move(that.m_debugName))
+      , m_debugName(std::move(that.m_debugName))
 #endif
 {
 }
@@ -71,13 +72,21 @@ std::string_view VulkanResource<ResourceType>::getDebugName() const
 }
 
 template <class ResourceType>
+void VulkanResource<ResourceType>::setDebugName(std::string_view debugName)
+{
+#ifdef HUAN_DEBUG
+    m_debugName = debugName;
+#endif
+}
+
+template <class ResourceType>
 ResourceType& VulkanResource<ResourceType>::getHandle()
 {
     return m_resourceHandle;
 }
 
 template <class ResourceType>
-vk::Device& VulkanResource<ResourceType>::getDeviceHandle()
+vk::Device& VulkanResource<ResourceType>::getDeviceHandle() const
 {
     return m_deviceHandle;
 }
@@ -102,6 +111,6 @@ uint64_t VulkanResource<ResourceType>::getHandleU64() const
     // Non-dispatchable handles _might_ be only 32-bit long. This is because, on 32-bit machines, they might be a typedef to a 32-bit pointer.
     using UintHandle = std::conditional_t<sizeof(ResourceType) == sizeof(uint32_t), uint32_t, uint64_t>;
 
-    return static_cast<uint64_t>(*reinterpret_cast<UintHandle const *>(&m_resourceHandle));
+    return static_cast<uint64_t>(*reinterpret_cast<UintHandle const*>(&m_resourceHandle));
 }
 }

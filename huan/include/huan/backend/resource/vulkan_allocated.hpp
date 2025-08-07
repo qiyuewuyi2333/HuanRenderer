@@ -4,40 +4,41 @@
 #pragma once
 #include "vk_mem_alloc.h"
 #include "vulkan_resource.hpp"
-#include "vulkan_resources.hpp"
 #include "huan/common.hpp"
+#include "huan/log/Log.hpp"
 
-namespace huan::vulkan
+namespace huan::engine::run_time::vulkan
 {
 template <class ResourceType>
 class VulkanAllocated : public VulkanResource<ResourceType>
 {
-  public:
-    using ParentType = ::huan::vulkan::VulkanResource<ResourceType>;
+public:
+    using ParentType = ::huan::engine::run_time::vulkan::VulkanResource<ResourceType>;
 
-  public:
+public:
     VulkanAllocated() = delete;
     HUAN_NO_COPY(VulkanAllocated)
     VulkanAllocated(VulkanAllocated&& that) noexcept;
-    VulkanAllocated& operator=(VulkanAllocated&& that) = delete;
+    VulkanAllocated& operator=(VulkanAllocated&& that) noexcept = default;
 
-  protected:
+protected:
     /**
      * @param allocInfo Used for VMA
      * @param args To create derived class. Typically a  'vk::ImageCreateInfo' or 'vk::BufferCreateInfo'
      */
     template <class... Args>
-    VulkanAllocated(const VmaAllocationCreateInfo& allocInfo, Args&&... args);
-    VulkanAllocated(vk::Device& deviceHandle, ResourceType handle);
+    explicit VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator,
+                             const VmaAllocationCreateInfo& allocInfo, Args&&... args);
+    explicit VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator, ResourceType handle);
 
-  public:
+public:
     [[nodiscard]] const ResourceType& get() const;
     /**
      * Flush this memory if it is NOT `HOST_COHERENT`.
      * @param offset
      * @param size
      */
-    void flush(vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize);
+    void flush(vk::DeviceSize offset = 0, vk::DeviceSize size = vk::WholeSize) const;
     /**
      * Retrieve a pointer to the host visible memory as an ubyte array.
      * @return The pointer is host visible memory.
@@ -58,7 +59,7 @@ class VulkanAllocated : public VulkanResource<ResourceType>
     /**
      * @return Mapping status.
      */
-    bool mapped() const;
+    [[nodiscard]] bool mapped() const;
     /**
      * Unmap vulkan memory from the host visible address.
      * Do nothing if no mapped or persistently mapped.
@@ -72,7 +73,7 @@ class VulkanAllocated : public VulkanResource<ResourceType>
      * @param offset Pos to start
      * @return
      */
-    size_t updateDirectly(const uint8_t* data, size_t size, size_t offset = 0);
+    size_t updateDirectly(const uint8_t* data, size_t size, size_t offset = 0) const;
     /**
      * Update with mapping and unmapping for non-persistent memory. Please don't use this function if you want to update
      * one memory for many times.
@@ -98,8 +99,10 @@ class VulkanAllocated : public VulkanResource<ResourceType>
     template <class T>
     size_t updateWithMapping(const vk::ArrayProxy<T>& object, size_t offset = 0);
 
-  protected:
+protected:
+    // Create a raw vk::Buffer by self 
     [[nodiscard]] vk::Buffer createBuffer(const vk::BufferCreateInfo& createInfo);
+    // Create a raw vk::Image by self
     [[nodiscard]] vk::Image createImage(const vk::ImageCreateInfo& createInfo);
     void destroyBuffer(vk::Buffer buffer);
     void destroyImage(vk::Image image);
@@ -108,7 +111,8 @@ class VulkanAllocated : public VulkanResource<ResourceType>
     // Clear the internal state in destroyXXX
     virtual void clear();
 
-  private:
+private:
+    VmaAllocator& m_allocator;
     VmaAllocationCreateInfo m_allocationCreateInfo = {};
     VmaAllocation m_allocation = nullptr;
     /**
@@ -132,6 +136,7 @@ class VulkanAllocated : public VulkanResource<ResourceType>
 template <class ResourceType>
 VulkanAllocated<ResourceType>::VulkanAllocated(VulkanAllocated&& that) noexcept
     : ParentType{static_cast<ParentType&&>(that)},
+      m_allocator(that.m_allocator),
       m_allocationCreateInfo(std::exchange(that.m_allocationCreateInfo, {})),
       m_allocation(std::exchange(that.m_allocation, nullptr)), m_mappedData(std::exchange(that.m_mappedData, nullptr)),
       m_isCoherent(std::exchange(that.m_isCoherent, false)), m_isPersistent(std::exchange(that.m_isPersistent, false))
@@ -140,14 +145,15 @@ VulkanAllocated<ResourceType>::VulkanAllocated(VulkanAllocated&& that) noexcept
 
 template <class ResourceType>
 template <class... Args>
-VulkanAllocated<ResourceType>::VulkanAllocated(const VmaAllocationCreateInfo& allocInfo, Args&&... args)
-    : ParentType{std::forward<Args>(args)...}, m_allocationCreateInfo(allocInfo)
+VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator,
+                                               const VmaAllocationCreateInfo& allocInfo, Args&&... args)
+    : ParentType{deviceHandle, std::forward<Args>(args)...}, m_allocator(allocator), m_allocationCreateInfo(allocInfo)
 {
 }
 
 template <class ResourceType>
-VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, ResourceType handle)
-    : ParentType(deviceHandle, handle)
+VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator, ResourceType handle)
+    : ParentType(deviceHandle, handle), m_allocator(allocator)
 {
 }
 
@@ -158,11 +164,11 @@ const ResourceType& VulkanAllocated<ResourceType>::get() const
 }
 
 template <class ResourceType>
-void VulkanAllocated<ResourceType>::flush(vk::DeviceSize offset, vk::DeviceSize size)
+void VulkanAllocated<ResourceType>::flush(vk::DeviceSize offset, vk::DeviceSize size) const
 {
     if (!m_isCoherent)
     {
-        vmaFlushAllocation(ResourceSystem::getInstance()->allocatorHandle, m_allocation, offset, size);
+        vmaFlushAllocation(m_allocator, m_allocation, offset, size);
     }
 }
 
@@ -177,7 +183,7 @@ vk::DeviceMemory VulkanAllocated<ResourceType>::getDeviceMemory() const
 {
     VmaAllocationInfo allocInfo;
     // Get alloc info
-    vmaGetAllocationInfo(ResourceSystem::getInstance()->allocatorHandle, m_allocation, &allocInfo);
+    vmaGetAllocationInfo(m_allocator, m_allocation, &allocInfo);
 
     return allocInfo.deviceMemory;
 }
@@ -187,8 +193,8 @@ uint8_t* VulkanAllocated<ResourceType>::map()
 {
     if (!m_isPersistent && !mapped())
     {
-        VK_CHECK(vmaMapMemory(ResourceSystem::getInstance()->allocatorHandle, m_allocation,
-                              reinterpret_cast<void**>(&m_mappedData)))
+        VK_CHECK(vmaMapMemory(m_allocator, m_allocation,
+            reinterpret_cast<void**>(&m_mappedData)))
     }
     return m_mappedData;
 }
@@ -204,13 +210,13 @@ void VulkanAllocated<ResourceType>::unmap()
 {
     if (!m_isPersistent && mapped())
     {
-        vmaUnmapMemory(ResourceSystem::getInstance()->allocatorHandle, m_allocation);
+        vmaUnmapMemory(m_allocator, m_allocation);
         m_mappedData = nullptr;
     }
 }
 
 template <class ResourceType>
-size_t VulkanAllocated<ResourceType>::updateDirectly(const uint8_t* data, size_t size, size_t offset)
+size_t VulkanAllocated<ResourceType>::updateDirectly(const uint8_t* data, size_t size, size_t offset) const
 {
     std::copy_n(data, size, m_mappedData + offset);
     flush(offset, size);
@@ -233,6 +239,7 @@ size_t VulkanAllocated<ResourceType>::updateWithMapping(const uint8_t* data, siz
         flush(offset, size);
         unmap();
     }
+    return size;
 }
 
 template <class ResourceType>
@@ -260,14 +267,14 @@ size_t VulkanAllocated<ResourceType>::updateWithMapping(const vk::ArrayProxy<T>&
 {
     return updateWithMapping(static_cast<const uint8_t*>(object.data()), object.size() * sizeof(T), offset);
 }
+
 template <class ResourceType>
 vk::Buffer VulkanAllocated<ResourceType>::createBuffer(const vk::BufferCreateInfo& createInfo)
 {
     vk::Buffer buffer = VK_NULL_HANDLE;
     VmaAllocationInfo allocationInfo{};
-    auto resSys = ResourceSystem::getInstance();
-    auto res =
-        vmaCreateBuffer(resSys->allocatorHandle, reinterpret_cast<const VkBufferCreateInfo*>(&createInfo),
+    const auto res =
+        vmaCreateBuffer(m_allocator, reinterpret_cast<const VkBufferCreateInfo*>(&createInfo),
                         &m_allocationCreateInfo, reinterpret_cast<VkBuffer*>(&buffer), &m_allocation, &allocationInfo);
     if (res != VK_SUCCESS)
         HUAN_CORE_BREAK("Failed to create buffer");
@@ -285,9 +292,8 @@ vk::Image VulkanAllocated<ResourceType>::createImage(const vk::ImageCreateInfo& 
 
     vk::Image image = VK_NULL_HANDLE;
     VmaAllocationInfo allocationInfo{};
-    const auto resSys = ResourceSystem::getInstance();
     const auto res =
-        vmaCreateImage(resSys->allocatorHandle, reinterpret_cast<const VkImageCreateInfo*>(&createInfo),
+        vmaCreateImage(m_allocator, reinterpret_cast<const VkImageCreateInfo*>(&createInfo),
                        &m_allocationCreateInfo, reinterpret_cast<VkImage*>(&image), &m_allocation, &allocationInfo);
     if (res != VK_SUCCESS)
         HUAN_CORE_BREAK("Failed to create image");
@@ -295,30 +301,41 @@ vk::Image VulkanAllocated<ResourceType>::createImage(const vk::ImageCreateInfo& 
     postCreate(allocationInfo);
     return image;
 }
+
 template <class ResourceType>
 void VulkanAllocated<ResourceType>::destroyBuffer(vk::Buffer buffer)
 {
     if (buffer != VK_NULL_HANDLE && m_allocation != nullptr)
     {
         unmap();
-        vmaDestroyBuffer(ResourceSystem::getInstance()->allocatorHandle, static_cast<VkBuffer>(buffer), m_allocation);
+        vmaDestroyBuffer(m_allocator, static_cast<VkBuffer>(buffer), m_allocation);
         clear();
     }
 }
+
 template <class ResourceType>
 void VulkanAllocated<ResourceType>::destroyImage(vk::Image image)
 {
     if (image != VK_NULL_HANDLE && m_allocation != nullptr)
     {
         unmap();
-        vmaDestroyImage(ResourceSystem::getInstance()->allocatorHandle, static_cast<VkImage>(image), m_allocation);
+        vmaDestroyImage(m_allocator, static_cast<VkImage>(image), m_allocation);
         clear();
     }
 }
+
 template <class ResourceType>
 void VulkanAllocated<ResourceType>::postCreate(const VmaAllocationInfo& allocationInfo)
 {
+    vk::MemoryPropertyFlags memoryPropertyFlags{};
+    vmaGetAllocationMemoryProperties(m_allocator, m_allocation,
+                                     reinterpret_cast<VkMemoryPropertyFlags*>(&memoryPropertyFlags));
+    m_isCoherent = (memoryPropertyFlags & vk::MemoryPropertyFlagBits::eHostCoherent) ==
+                   vk::MemoryPropertyFlagBits::eHostCoherent;
+    m_mappedData = static_cast<uint8_t*>(allocationInfo.pMappedData);
+    m_isPersistent = mapped();
 }
+
 template <class ResourceType>
 void VulkanAllocated<ResourceType>::clear()
 {
