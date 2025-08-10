@@ -1,8 +1,9 @@
 #pragma once
+
 #include "vulkan_allocated.hpp"
 #include "vulkan_builder_base.hpp"
 
-namespace huan::engine::run_time::vulkan
+namespace huan::runtime::vulkan
 {
 class Buffer;
 
@@ -11,7 +12,7 @@ class BufferBuilder : public BuilderBase<BufferBuilder, vk::BufferCreateInfo>
     using ParentType = BuilderBase<BufferBuilder, vk::BufferCreateInfo>;
 
 public:
-    explicit BufferBuilder(vk::DeviceSize size);
+    explicit BufferBuilder(VmaAllocator allocator, vk::DeviceSize size);
     [nodiscard] Buffer build(vk::Device& device) const;
     Scope<Buffer> buildScope(vk::Device& device) const;
     BufferBuilder& setFlags(vk::BufferCreateFlags flags);

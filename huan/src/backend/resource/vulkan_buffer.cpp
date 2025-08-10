@@ -1,10 +1,10 @@
 #include "huan/backend/resource/vulkan_buffer.hpp"
 
-namespace huan::vulkan
+namespace huan::runtime::vulkan
 {
-
-BufferBuilder::BufferBuilder(vk::DeviceSize size)
-    : ParentType(vk::BufferCreateInfo{{}, size})
+#pragma region BufferBuilder
+BufferBuilder::BufferBuilder(VmaAllocator allocator, vk::DeviceSize size)
+    : ParentType(allocator, vk::BufferCreateInfo{{}, size})
 {
 }
 
@@ -29,10 +29,11 @@ BufferBuilder& BufferBuilder::setUsage(vk::BufferUsageFlags usage)
     m_createInfo.usage = usage;
     return *this;
 }
+#pragma endregion
 
-
+#pragma region Buffer
 Buffer::Buffer(vk::Device& device, const BufferBuilder& builder)
-    : ParentType(builder.getAllocationCreateInfo(), device)
+    : ParentType(device, builder.getAllocator(), builder.getAllocationCreateInfo())
 {
     this->setHandle(this->createBuffer(builder.getCreateInfo()));
 #ifdef HUAN_DEBUG
@@ -58,4 +59,5 @@ vk::DeviceSize Buffer::getDeviceAddress() const
     return this->getDeviceHandle().getBufferAddress({.buffer = getHandle()});
 }
 
+#pragma endregion
 }

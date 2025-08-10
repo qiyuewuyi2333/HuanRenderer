@@ -5,57 +5,57 @@
 
 #include "huan/HelloTriangleApplication.hpp"
 #include "huan/backend/vulkan_command.hpp"
-#include "huan/backend/vulkan_image.hpp"
-#include "huan/backend/resource/vulkan_buffer.hpp"
 #include "huan/log/Log.hpp"
 
-namespace huan
+namespace huan::runtime
 {
 
-Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                                                  vk::MemoryPropertyFlags memoryProperties,
-                                                                  void* srcData)
+// Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
+//                                                                   vk::MemoryPropertyFlags memoryProperties,
+//                                                                   void* srcData)
+// {
+//     return createScope<EnableCreateScope>(tempObj);
+// }
+//
+// Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage, void* srcData)
+// {
+//     // 使用具备类实现私有构造函数
+//     struct EnableCreateScope : public vulkan::Buffer
+//     {
+//         explicit EnableCreateScope(Buffer& that) : Buffer(that)
+//         {
+//         }
+//     };
+//
+//     vulkan::Buffer tempObj;
+//     tempObj.m_writeType = vulkan::Buffer::WriteType::Dynamic;
+//
+//     vk::BufferCreateInfo bufferInfo;
+//     bufferInfo.setSize(size).setUsage(usage).setSharingMode(vk::SharingMode::eExclusive);
+//
+//     VmaAllocationCreateInfo allocationCreateInfo = {};
+//     allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
+//     allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+//
+//     vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
+//                     reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
+//
+//     updateDataInBuffer(tempObj, srcData, size);
+//
+//     if (!tempObj.m_buffer)
+//         HUAN_CORE_BREAK("[ResourceSystem]: Failed to create buffer");
+//     if (!tempObj.m_allocation)
+//         HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
+//     return createScope<EnableCreateScope>(tempObj);
+// }
+
+vulkan::Buffer ResourceSystem::createStagingBuffer(vk::BufferUsageFlags usage,
+                                                   vk::DeviceSize size,
+                                                   const void* srcData)
 {
-    return createScope<EnableCreateScope>(tempObj);
-}
-
-Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage, void* srcData)
-{
-    // 使用具备类实现私有构造函数
-    struct EnableCreateScope : public vulkan::Buffer
-    {
-        explicit EnableCreateScope(Buffer& that) : Buffer(that)
-        {
-        }
-    };
-
-    vulkan::Buffer tempObj;
-    tempObj.m_writeType = vulkan::Buffer::WriteType::Dynamic;
-
-    vk::BufferCreateInfo bufferInfo;
-    bufferInfo.setSize(size).setUsage(usage).setSharingMode(vk::SharingMode::eExclusive);
-
-    VmaAllocationCreateInfo allocationCreateInfo = {};
-    allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-    allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-
-    vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
-                    reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
-
-    updateDataInBuffer(tempObj, srcData, size);
-
-    if (!tempObj.m_buffer)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to create buffer");
-    if (!tempObj.m_allocation)
-        HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
-    return createScope<EnableCreateScope>(tempObj);
-}
-
-vulkan::Buffer ResourceSystem::createStagingBuffer(vk::DeviceSize size, const void* srcData) const
-{
-    vulkan::BufferBuilder builder(size);
-    builder.setVmaFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT )
-    .setUsage(vk::BufferUsageFlagBits::eTransferSrc);
+    vulkan::BufferBuilder builder(allocatorHandle, size);
+    builder.setVmaFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
+           .setUsage(vk::BufferUsageFlagBits::eTransferSrc | usage);
     vulkan::Buffer res(deviceHandle, builder);
     if (srcData != nullptr)
     {
@@ -65,154 +65,181 @@ vulkan::Buffer ResourceSystem::createStagingBuffer(vk::DeviceSize size, const vo
     return res;
 }
 
-void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
-                                        vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, void* srcData)
 {
-    if (srcData == nullptr)
+    // 创建 device local buffer
+    vulkan::BufferBuilder builder(allocatorHandle, size);
+    builder.setVmaUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+           .setUsage(usage | vk::BufferUsageFlagBits::eTransferDst);
+
+    vulkan::Buffer deviceBuffer(deviceHandle, builder);
+
+    // 如果有源数据，通过 staging buffer 传输
+    if (srcData != nullptr)
     {
-        HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the srcData is nullptr.");
-        return;
+        executeImmediateTransfer([&](vk::CommandBuffer cmd) {
+            // 创建临时 staging buffer
+            vulkan::Buffer stagingBuffer = createStagingBuffer(usage, size, srcData);
+
+            // 记录复制命令
+            vk::BufferCopy copyRegion{};
+            copyRegion.size = size;
+            cmd.copyBuffer(stagingBuffer.getHandle(), deviceBuffer.getHandle(), copyRegion);
+        });
     }
-    if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
-    {
-        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation,
-                                  dstOffset, size);
-    }
-    else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
-    {
-        auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
-        copyBufferToBuffer(targetBuffer.m_buffer, stagingBuffer->m_buffer, size);
-        destroyBuffer(stagingBuffer.get());
-    }
+
+    return deviceBuffer;
 }
 
-void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size,
-                                       vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
-{
-    if (srcData == nullptr)
-    {
-        HUAN_CORE_ERROR("Failed to update data to image. ")
-        return;
-    }
-    if (targetImage.m_writeType == vulkan::Image::WriteType::Dynamic)
-    {
-        vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetImage.m_allocation,
-                                  dstOffset, size);
-    }
-    else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
-    {
-        auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
-        copyBufferToImage(stagingBuffer->m_buffer, targetImage.m_image, targetImage.m_extent);
-        destroyBuffer(stagingBuffer.get());
-    }
-}
 
-Scope<vulkan::Image> ResourceSystem::createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent,
-                                                            uint32_t mipLevels, vk::Format format,
-                                                            vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-                                                            vk::MemoryPropertyFlags properties, void* data)
-{
-    class EnableCreateScope final : public vulkan::Image
-    {
-    public:
-        explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
-        {
-        }
-    };
-
-    vulkan::Image tempObj;
-    tempObj.m_writeType = vulkan::Image::WriteType::Static;
-    tempObj.m_extent = extent;
-
-    vk::ImageCreateInfo imageCreateInfo;
-    imageCreateInfo.setImageType(imageType)
-                   .setExtent(extent)
-                   .setMipLevels(mipLevels)
-                   .setArrayLayers(1)
-                   .setFormat(format)
-                   .setTiling(tiling)
-                   .setInitialLayout(vk::ImageLayout::eUndefined)
-                   .setUsage(usage)
-                   .setSamples(vk::SampleCountFlagBits::e1)
-                   .setSharingMode(vk::SharingMode::eExclusive)
-                   .setQueueFamilyIndexCount(0)
-                   .setPQueueFamilyIndices(nullptr)
-                   .setFlags(vk::ImageCreateFlags());
-    VmaAllocationCreateInfo memoryAllocateInfo = {};
-    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    memoryAllocateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    VmaAllocationInfo allocationInfo = {};
-    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
-                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
-
-    if (data)
-    {
-        auto stagingBuffer = createBufferNormal(allocationInfo.size, vk::BufferUsageFlagBits::eTransferSrc, data);
-        // Transition the layout to vk::ImageLayout::eTransferDstOptimal for copying data to it.
-        transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eUndefined,
-                              vk::ImageLayout::eTransferDstOptimal);
-        copyBufferToImage(stagingBuffer->m_buffer, tempObj.m_image, extent);
-        // Transition the layout to vk::ImageLayout::eShaderReadOnlyOptimal for shaders using it.
-        transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eTransferDstOptimal,
-                              vk::ImageLayout::eShaderReadOnlyOptimal);
-        destroyBuffer(stagingBuffer.get());
-    }
-
-    return createScope<EnableCreateScope>(tempObj);
-}
-
-Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent,
-                                                       uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
-                                                       vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-                                                       void* data)
-{
-    class EnableCreateScope final : public vulkan::Image
-    {
-    public:
-        explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
-        {
-        }
-    };
-
-    vulkan::Image tempObj;
-    tempObj.m_writeType = vulkan::Image::WriteType::Dynamic;
-    tempObj.m_extent = extent;
-
-    vk::ImageCreateInfo imageCreateInfo;
-    imageCreateInfo.setImageType(imageType)
-                   .setExtent(extent)
-                   .setMipLevels(mipLevels)
-                   .setArrayLayers(1)
-                   .setFormat(format)
-                   .setTiling(tiling)
-                   .setInitialLayout(vk::ImageLayout::eUndefined)
-                   .setUsage(usage)
-                   .setSamples(vk::SampleCountFlagBits::e1)
-                   .setSharingMode(vk::SharingMode::eExclusive)
-                   .setQueueFamilyIndexCount(0)
-                   .setPQueueFamilyIndices(nullptr)
-                   .setFlags(vk::ImageCreateFlags());
-
-    VmaAllocationCreateInfo memoryAllocateInfo = {};
-    memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-    VmaAllocationInfo allocationInfo;
-    vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
-                   reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
-
-    updateDataInImage(tempObj, data, allocationInfo.size);
-
-    return createScope<EnableCreateScope>(tempObj);
-}
-
-void ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
-                                     vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
-{
-    image.m_viewInfo.setImage(image.m_image).setViewType(viewType).setFormat(format).setSubresourceRange(
-        vk::ImageSubresourceRange(aspectFlags, 0, mipLevels, 0, 1));
-
-    image.m_imageView = deviceHandle.createImageView(image.m_viewInfo);
-}
-
+// void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
+//                                         vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+// {
+//     if (srcData == nullptr)
+//     {
+//         HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the srcData is nullptr.");
+//         return;
+//     }
+//     if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
+//     {
+//         vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation,
+//                                   dstOffset, size);
+//     }
+//     else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
+//     {
+//         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
+//         copyBufferToBuffer(targetBuffer.m_buffer, stagingBuffer->m_buffer, size);
+//         destroyBuffer(stagingBuffer.get());
+//     }
+// }
+//
+// void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size,
+//                                        vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
+// {
+//     if (srcData == nullptr)
+//     {
+//         HUAN_CORE_ERROR("Failed to update data to image. ")
+//         return;
+//     }
+//     if (targetImage.m_writeType == vulkan::Image::WriteType::Dynamic)
+//     {
+//         vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetImage.m_allocation,
+//                                   dstOffset, size);
+//     }
+//     else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
+//     {
+//         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
+//         copyBufferToImage(stagingBuffer->m_buffer, targetImage.m_image, targetImage.m_extent);
+//         destroyBuffer(stagingBuffer.get());
+//     }
+// }
+//
+// Scope<vulkan::Image> ResourceSystem::createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent,
+//                                                             uint32_t mipLevels, vk::Format format,
+//                                                             vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+//                                                             vk::MemoryPropertyFlags properties, void* data)
+// {
+//     class EnableCreateScope final : public vulkan::Image
+//     {
+//     public:
+//         explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
+//         {
+//         }
+//     };
+//
+//     vulkan::Image tempObj;
+//     tempObj.m_writeType = vulkan::Image::WriteType::Static;
+//     tempObj.m_extent = extent;
+//
+//     vk::ImageCreateInfo imageCreateInfo;
+//     imageCreateInfo.setImageType(imageType)
+//                    .setExtent(extent)
+//                    .setMipLevels(mipLevels)
+//                    .setArrayLayers(1)
+//                    .setFormat(format)
+//                    .setTiling(tiling)
+//                    .setInitialLayout(vk::ImageLayout::eUndefined)
+//                    .setUsage(usage)
+//                    .setSamples(vk::SampleCountFlagBits::e1)
+//                    .setSharingMode(vk::SharingMode::eExclusive)
+//                    .setQueueFamilyIndexCount(0)
+//                    .setPQueueFamilyIndices(nullptr)
+//                    .setFlags(vk::ImageCreateFlags());
+//     VmaAllocationCreateInfo memoryAllocateInfo = {};
+//     memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+//     memoryAllocateInfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
+//     VmaAllocationInfo allocationInfo = {};
+//     vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+//                    reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
+//
+//     if (data)
+//     {
+//         auto stagingBuffer = createBufferNormal(allocationInfo.size, vk::BufferUsageFlagBits::eTransferSrc, data);
+//         // Transition the layout to vk::ImageLayout::eTransferDstOptimal for copying data to it.
+//         transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eUndefined,
+//                               vk::ImageLayout::eTransferDstOptimal);
+//         copyBufferToImage(stagingBuffer->m_buffer, tempObj.m_image, extent);
+//         // Transition the layout to vk::ImageLayout::eShaderReadOnlyOptimal for shaders using it.
+//         transitionImageLayout(tempObj.m_image, format, vk::ImageLayout::eTransferDstOptimal,
+//                               vk::ImageLayout::eShaderReadOnlyOptimal);
+//         destroyBuffer(stagingBuffer.get());
+//     }
+//
+//     return createScope<EnableCreateScope>(tempObj);
+// }
+//
+// Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent,
+//                                                        uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
+//                                                        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
+//                                                        void* data)
+// {
+//     class EnableCreateScope final : public vulkan::Image
+//     {
+//     public:
+//         explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
+//         {
+//         }
+//     };
+//
+//     vulkan::Image tempObj;
+//     tempObj.m_writeType = vulkan::Image::WriteType::Dynamic;
+//     tempObj.m_extent = extent;
+//
+//     vk::ImageCreateInfo imageCreateInfo;
+//     imageCreateInfo.setImageType(imageType)
+//                    .setExtent(extent)
+//                    .setMipLevels(mipLevels)
+//                    .setArrayLayers(1)
+//                    .setFormat(format)
+//                    .setTiling(tiling)
+//                    .setInitialLayout(vk::ImageLayout::eUndefined)
+//                    .setUsage(usage)
+//                    .setSamples(vk::SampleCountFlagBits::e1)
+//                    .setSharingMode(vk::SharingMode::eExclusive)
+//                    .setQueueFamilyIndexCount(0)
+//                    .setPQueueFamilyIndices(nullptr)
+//                    .setFlags(vk::ImageCreateFlags());
+//
+//     VmaAllocationCreateInfo memoryAllocateInfo = {};
+//     memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
+//     VmaAllocationInfo allocationInfo;
+//     vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
+//                    reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
+//
+//     updateDataInImage(tempObj, data, allocationInfo.size);
+//
+//     return createScope<EnableCreateScope>(tempObj);
+// }
+//
+// void ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
+//                                      vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
+// {
+//     image.m_viewInfo.setImage(image.m_image).setViewType(viewType).setFormat(format).setSubresourceRange(
+//         vk::ImageSubresourceRange(aspectFlags, 0, mipLevels, 0, 1));
+//
+//     image.m_imageView = deviceHandle.createImageView(image.m_viewInfo);
+// }
+//
 /**
  * 获取满足类型筛选(typeFilter)和目标内存属性properties的内存类型索引
  * @param typeFilter
@@ -352,17 +379,17 @@ void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage,
     commandSystem->endSingleTimeCommands(commandPool, commandBuffer);
 }
 
-void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
-{
-    vmaDestroyBuffer(allocatorHandle, buffer->m_buffer, buffer->m_allocation);
-}
-
-void ResourceSystem::destroyImage(vulkan::Image* image)
-{
-    if (image->m_imageView)
-        deviceHandle.destroy(image->m_imageView);
-    vmaDestroyImage(allocatorHandle, image->m_image, image->m_allocation);
-}
+// void ResourceSystem::destroyBuffer(vulkan::Buffer* buffer)
+// {
+//     vmaDestroyBuffer(allocatorHandle, buffer->m_buffer, buffer->m_allocation);
+// }
+//
+// void ResourceSystem::destroyImage(vulkan::Image* image)
+// {
+//     if (image->m_imageView)
+//         deviceHandle.destroy(image->m_imageView);
+//     vmaDestroyImage(allocatorHandle, image->m_image, image->m_allocation);
+// }
 
 ResourceSystem::ResourceSystem()
     : deviceHandle(HelloTriangleApplication::getInstance()->device),

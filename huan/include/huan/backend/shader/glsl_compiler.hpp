@@ -7,7 +7,7 @@
 
 #include "huan/backend/shader.hpp"
 
-namespace huan::engine
+namespace huan::runtime
 {
 /**
  * Convert SPIR-V code from GLSL source

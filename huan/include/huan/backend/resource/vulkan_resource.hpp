@@ -7,7 +7,7 @@
 
 #include "huan/common.hpp"
 
-namespace huan::engine::run_time::vulkan
+namespace huan::runtime::vulkan
 {
 template <class ResourceType>
 class VulkanResource

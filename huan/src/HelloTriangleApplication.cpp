@@ -11,7 +11,7 @@
 
 #include "huan/settings.hpp"
 #include "huan/backend/shader.hpp"
-#include "huan/backend/vulkan_buffer.hpp"
+#include "huan/backend/resource/vulkan_buffer.hpp"
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_load.hpp"
 #include "glm/gtc/matrix_transform.hpp"

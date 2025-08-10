@@ -24,8 +24,6 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/utils/file_load.hpp
         src/backend/shader.cpp
         include/huan/backend/shader.hpp
-        include/huan/backend/vulkan_buffer.hpp
-        src/backend/vulkan_buffer.cpp
         src/utils/stb_image.cpp
         include/huan/backend/vulkan_image.hpp
         src/backend/vulkan_image.cpp
@@ -63,6 +61,16 @@ add_library(${PROJECT_NAME} SHARED
         include/huan/backend/resource/vulkan_builder_base.hpp
         include/huan/backend/resource/vulkan_buffer.hpp
         src/backend/resource/vulkan_buffer.cpp
+        src/backend/vulkan_command_pool.cpp
+        include/huan/backend/vulkan_command_pool.hpp
+        src/backend/VulkanContext.cpp
+        include/huan/VulkanContext.hpp
+        src/backend/vulkan_render_frame.cpp
+        include/huan/backend/vulkan_render_frame.hpp
+        src/backend/resource/vulkan_image.cpp
+        include/huan/backend/resource/vulkan_image.hpp
+        src/backend/resource/image_view.cpp
+        include/huan/backend/resource/image_view.hpp
 )
 
 if(${HUAN_DEBUG})

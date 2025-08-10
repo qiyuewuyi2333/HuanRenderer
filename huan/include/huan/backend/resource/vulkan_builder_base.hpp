@@ -6,13 +6,14 @@
 #include "vulkan/vulkan.hpp"
 #include "huan/common.hpp"
 
-namespace huan::engine::run_time::vulkan
+namespace huan::runtime::vulkan
 {
 template <class BuilderType, class CreateInfoType>
 class BuilderBase
 {
 public:
     [[nodiscard]] const VmaAllocationCreateInfo& getAllocationCreateInfo() const;
+    VmaAllocator getAllocator() const;
     const CreateInfoType& getCreateInfo() const;
     [[nodiscard]] const std::string& getDebugName() const;
     BuilderType& setDebugName(const std::string& debugName);
@@ -29,11 +30,12 @@ public:
 
 protected:
     HUAN_NO_COPY(BuilderBase)
-    explicit BuilderBase(const CreateInfoType& createInfo);
+    explicit BuilderBase(VmaAllocator allocator, const CreateInfoType& createInfo);
     CreateInfoType& getCreateInfo();
 
+    VmaAllocator m_allocator{};
     VmaAllocationCreateInfo m_allocationCreateInfo = {};
-    CreateInfoType m_createInfo = {};
+    CreateInfoType m_createInfo{};
 #ifdef HUAN_DEBUG
     std::string m_debugName = {};
 #endif
@@ -43,6 +45,12 @@ template <class BuilderType, class CreateInfoType>
 const VmaAllocationCreateInfo& BuilderBase<BuilderType, CreateInfoType>::getAllocationCreateInfo() const
 {
     return m_allocationCreateInfo;
+}
+
+template <class BuilderType, class CreateInfoType>
+VmaAllocator BuilderBase<BuilderType, CreateInfoType>::getAllocator() const
+{
+    return m_allocator;
 }
 
 template <class BuilderType, class CreateInfoType>
@@ -141,8 +149,8 @@ BuilderType& BuilderBase<BuilderType, CreateInfoType>::setVmaUsage(VmaMemoryUsag
 }
 
 template <class BuilderType, class CreateInfoType>
-BuilderBase<BuilderType, CreateInfoType>::BuilderBase(const CreateInfoType& createInfo)
-    : m_createInfo(createInfo)
+BuilderBase<BuilderType, CreateInfoType>::BuilderBase(VmaAllocator allocator, const CreateInfoType& createInfo)
+    : m_allocator(allocator), m_createInfo(createInfo)
 {
     m_allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
 }

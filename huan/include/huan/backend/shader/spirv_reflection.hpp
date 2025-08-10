@@ -12,7 +12,7 @@ namespace vk
 enum class ShaderStageFlagBits : unsigned int;
 }
 
-namespace huan::engine
+namespace huan::runtime
 {
 
 namespace vulkan

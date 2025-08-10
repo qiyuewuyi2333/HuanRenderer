@@ -2,8 +2,8 @@
 // Created by 86156 on 4/4/2025.
 //
 
-#ifndef HELLOTRIANGLEAPPLICATION_HPP
-#define HELLOTRIANGLEAPPLICATION_HPP
+#pragma once
+
 #include <vulkan/vulkan.hpp>
 #include <optional>
 #include <vector>
@@ -166,8 +166,7 @@ public:
         }
     };
 
-    // clang-format off
-  INNER_VISIBLE:
+INNER_VISIBLE:
     inline static HelloTriangleApplication* instance = nullptr;
     GLFWwindow* window = nullptr;
     vk::Instance vkInstance;
@@ -206,8 +205,8 @@ public:
     vk::Sampler m_textureSampler;
 
     Scope<vulkan::Image> m_depthImage;
-    
-    
+
+
     bool initialized = false;
     bool m_framebufferResized = false;
 
@@ -217,5 +216,3 @@ public:
     std::vector<uint32_t> m_indices = {};
 };
 } // namespace huan
-
-#endif // HELLOTRIANGLEAPPLICATION_HPP

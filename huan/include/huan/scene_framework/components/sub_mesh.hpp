@@ -15,12 +15,8 @@
 
 #include <optional>
 
-namespace huan::vulkan
-{
-class Buffer;
-}
 
-namespace huan::engine::vulkan
+namespace huan::runtime::vulkan
 {
 class Buffer;
 }
@@ -44,8 +40,8 @@ public:
     uint32_t m_indexOffset = 0;
     uint32_t m_verticesCount = 0;
     uint32_t m_vertexIndices = 0;
-    std::unordered_map<std::string, huan::vulkan::Buffer> m_vertexBuffers;
-    Scope<vulkan::Buffer> m_indexBuffer;
+    std::unordered_map<std::string, runtime::vulkan::Buffer> m_vertexBuffers;
+    Scope<runtime::vulkan::Buffer> m_indexBuffer;
 
     void setAttribute(const std::string& name, const VertexAttribute& attribute);
     std::optional<VertexAttribute> getAttribute(const std::string& name) const;
@@ -53,13 +49,13 @@ public:
     void setMaterial(const Material& material);
     const Material* getMaterial() const;
 
-    const engine::run_time::vulkan::ShaderVariant& getShaderVariant() const;
-    engine::run_time::vulkan::ShaderVariant& getMutableShaderVariant();
+    const runtime::vulkan::ShaderVariant& getShaderVariant() const;
+    runtime::vulkan::ShaderVariant& getMutableShaderVariant();
 
 private:
     std::unordered_map<std::string, VertexAttribute> m_vertexAttributes;
     const Material* m_material = nullptr;
-    engine::run_time::vulkan::ShaderVariant m_shaderVariant;
+    runtime::vulkan::ShaderVariant m_shaderVariant;
 
     void computeShaderVariant();
 };

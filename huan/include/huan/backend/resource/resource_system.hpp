@@ -6,19 +6,19 @@
 #define VULKAN_RESOURCES_HPP
 
 #include "vk_mem_alloc.h"
-#include "vulkan_buffer.hpp"
+#include "huan/HelloTriangleApplication.hpp"
 #include "huan/common.hpp"
 #include "huan/common_templates/deferred_system.hpp"
 #include "huan/log/Log.hpp"
 #include "vulkan/vulkan.hpp"
+#include "huan/backend/resource/vulkan_buffer.hpp"
 
-namespace huan::vulkan
+namespace huan::runtime::vulkan
 {
 class Image;
-class Buffer;
 } // namespace huan::vulkan
 
-namespace huan
+namespace huan::runtime
 {
 
 class ResourceSystem final : public DeferredSystem<ResourceSystem>
@@ -26,15 +26,30 @@ class ResourceSystem final : public DeferredSystem<ResourceSystem>
     friend class DeferredSystem<ResourceSystem>;
 
 public:
-    Scope<vulkan::Buffer> createBufferByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
-                                                      vk::MemoryPropertyFlags memoryProperties,
-                                                      void* srcData = nullptr);
-    Scope<vulkan::Buffer> createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage, void* srcData = nullptr);
-    vulkan::Buffer createStagingBuffer(vk::DeviceSize size, const void* srcData = nullptr) const;
+
+#pragma region Buffer
+
+#pragma region 创建StagingBuffer
+    vulkan::Buffer createStagingBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                       const void* srcData = nullptr);
     template <class T>
-    vulkan::Buffer createStagingBuffer(vk::DeviceSize size, const T& srcData) const;
+    vulkan::Buffer createStagingBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
+#pragma endregion
+
+#pragma region 创建DeviceLocalBuffer
+    vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                           void* srcData = nullptr);
+    template <class T>
+    vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
+
+#pragma endregion
+    template <typename Func>
+    void executeImmediateTransfer(Func&& func) const;
+
+#pragma endregion
     void updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
                             vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
+
     void updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size, vk::DeviceSize srcOffset = 0,
                            vk::DeviceSize dstOffset = 0);
 
@@ -67,9 +82,75 @@ protected:
 };
 
 template <class T>
-vulkan::Buffer ResourceSystem::createStagingBuffer(vk::DeviceSize size, const T& srcData) const
+vulkan::Buffer ResourceSystem::createStagingBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData)
 {
-    return createStagingBuffer(size, sizeof(T), &srcData);
+    return createStagingBuffer(usage, srcData.size() * sizeof(T), &srcData);
+}
+
+class ScopedCommandBuffer
+{
+    vk::Device device;
+    vk::CommandPool pool;
+    vk::CommandBuffer cmd;
+
+public:
+    ScopedCommandBuffer(vk::Device dev, vk::CommandPool p)
+        : device(dev), pool(p)
+    {
+        vk::CommandBufferAllocateInfo allocInfo{};
+        allocInfo.level = vk::CommandBufferLevel::ePrimary;
+        allocInfo.commandPool = pool;
+        allocInfo.commandBufferCount = 1;
+
+        cmd = device.allocateCommandBuffers(allocInfo)[0];
+
+        vk::CommandBufferBeginInfo beginInfo{};
+        beginInfo.flags = vk::CommandBufferUsageFlagBits::eOneTimeSubmit;
+        cmd.begin(beginInfo);
+    }
+
+    ~ScopedCommandBuffer()
+    {
+        if (cmd)
+        {
+            device.freeCommandBuffers(pool, cmd);
+        }
+    }
+
+    vk::CommandBuffer get() const
+    {
+        return cmd;
+    }
+
+    void submitAndWait(vk::Queue queue)
+    {
+        cmd.end();
+
+        vk::SubmitInfo submitInfo{};
+        submitInfo.commandBufferCount = 1;
+        submitInfo.pCommandBuffers = &cmd;
+
+        queue.submit(submitInfo);
+        queue.waitIdle();
+    }
+
+    // 禁止复制
+    ScopedCommandBuffer(const ScopedCommandBuffer&) = delete;
+    ScopedCommandBuffer& operator=(const ScopedCommandBuffer&) = delete;
+};
+
+template <class T>
+vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData)
+{
+    return createDeviceLocalBuffer(usage, srcData.size() * sizeof(T), &srcData);
+}
+
+template <typename Func>
+void ResourceSystem::executeImmediateTransfer(Func&& func) const
+{
+    ScopedCommandBuffer scopedCmd(deviceHandle, HelloTriangleApplication::instance->m_transferCommandPool);
+    func(scopedCmd.get());
+    scopedCmd.submitAndWait(HelloTriangleApplication::instance->transferQueue);
 }
 
 } // namespace huan

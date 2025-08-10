@@ -7,13 +7,13 @@
 #include "huan/common.hpp"
 #include "huan/log/Log.hpp"
 
-namespace huan::engine::run_time::vulkan
+namespace huan::runtime::vulkan
 {
 template <class ResourceType>
 class VulkanAllocated : public VulkanResource<ResourceType>
 {
 public:
-    using ParentType = ::huan::engine::run_time::vulkan::VulkanResource<ResourceType>;
+    using ParentType = ::huan::runtime::vulkan::VulkanResource<ResourceType>;
 
 public:
     VulkanAllocated() = delete;
@@ -23,13 +23,15 @@ public:
 
 protected:
     /**
+     * @param deviceHandle
+     * @param allocator
      * @param allocInfo Used for VMA
-     * @param args To create derived class. Typically a  'vk::ImageCreateInfo' or 'vk::BufferCreateInfo'
+     * @param args To create derived class. Typically, a  'vk::ImageCreateInfo' or 'vk::BufferCreateInfo'
      */
     template <class... Args>
-    explicit VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator,
+    explicit VulkanAllocated(vk::Device& deviceHandle, const VmaAllocator& allocator,
                              const VmaAllocationCreateInfo& allocInfo, Args&&... args);
-    explicit VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator, ResourceType handle);
+    explicit VulkanAllocated(vk::Device& deviceHandle, ResourceType handle);
 
 public:
     [[nodiscard]] const ResourceType& get() const;
@@ -67,7 +69,7 @@ public:
     void unmap();
 
     /**
-     * Directly copy data to the host visible memory. Don't need mapping, and also don't do unmapping!
+     * Directly copy data to the host visible memory. Don't mapping, and also don't do unmapping!
      * @param data A pointer with data, and it SHOULD have been mapped to the host visible address.
      * @param size Bytes num
      * @param offset Pos to start
@@ -112,7 +114,7 @@ protected:
     virtual void clear();
 
 private:
-    VmaAllocator& m_allocator;
+    VmaAllocator m_allocator;
     VmaAllocationCreateInfo m_allocationCreateInfo = {};
     VmaAllocation m_allocation = nullptr;
     /**
@@ -145,15 +147,15 @@ VulkanAllocated<ResourceType>::VulkanAllocated(VulkanAllocated&& that) noexcept
 
 template <class ResourceType>
 template <class... Args>
-VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator,
+VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, const VmaAllocator& allocator,
                                                const VmaAllocationCreateInfo& allocInfo, Args&&... args)
     : ParentType{deviceHandle, std::forward<Args>(args)...}, m_allocator(allocator), m_allocationCreateInfo(allocInfo)
 {
 }
 
 template <class ResourceType>
-VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, VmaAllocator& allocator, ResourceType handle)
-    : ParentType(deviceHandle, handle), m_allocator(allocator)
+VulkanAllocated<ResourceType>::VulkanAllocated(vk::Device& deviceHandle, ResourceType handle)
+    : ParentType(deviceHandle, handle), m_allocator(VK_NULL_HANDLE)
 {
 }
 
