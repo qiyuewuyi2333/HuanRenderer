@@ -25,8 +25,6 @@ add_library(${PROJECT_NAME} SHARED
         src/backend/shader.cpp
         include/huan/backend/shader.hpp
         src/utils/stb_image.cpp
-        include/huan/backend/vulkan_image.hpp
-        src/backend/vulkan_image.cpp
         include/huan/backend/vulkan_command.hpp
         src/backend/vulkan_command.cpp
         include/huan/common_templates/deferred_system.hpp

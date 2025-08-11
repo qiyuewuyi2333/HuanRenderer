@@ -11,7 +11,8 @@
 
 namespace huan::runtime::vulkan
 {
-
+class ImageView;
+class Image;
 /**
  * @brief VulkanImage 构建器，使用构建器模式创建图像
  */
@@ -45,8 +46,8 @@ public:
     ImageBuilder& setExtension(ExtensionType& extension);
 
     // 构建方法
-    class Image build(vk::Device& device) const;
-    std::unique_ptr<Image> buildUnique(vk::Device& device) const;
+    Image build(vk::Device& device) const;
+    Scope<Image> buildUnique(vk::Device& device) const;
 
 private:
     std::vector<uint32_t> m_queueFamilyIndices;
@@ -68,6 +69,7 @@ ImageBuilder& ImageBuilder::setExtension(ExtensionType& extension)
 class Image : public VulkanAllocated<vk::Image>
 {
     using ParentType = VulkanAllocated<vk::Image>;
+
 public:
     Image(vk::Device& device,
           vk::Image handle,
@@ -76,6 +78,7 @@ public:
           vk::ImageUsageFlags imageUsage,
           vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1);
 
+    // 使用非const引用 防止传入右值
     Image(vk::Device& device, const ImageBuilder& builder);
 
     HUAN_NO_COPY(Image)
@@ -93,8 +96,9 @@ public:
     const vk::ImageSubresource& getSubresource() const;
     uint32_t getArrayLayerCount() const;
     std::unordered_set<ImageView*>& getViews();
-    vk::DeviceSize getImageRequiredSize() const;
 
+
+    uint8_t* map(); 
 private:
     vk::ImageCreateInfo m_createInfo{};
     vk::ImageSubresource m_subresource{};

@@ -36,6 +36,7 @@ Buffer::Buffer(vk::Device& device, const BufferBuilder& builder)
     : ParentType(device, builder.getAllocator(), builder.getAllocationCreateInfo())
 {
     this->setHandle(this->createBuffer(builder.getCreateInfo()));
+    this->m_size = builder.getCreateInfo().size;
 #ifdef HUAN_DEBUG
     if (!builder.getDebugName().empty())
     {

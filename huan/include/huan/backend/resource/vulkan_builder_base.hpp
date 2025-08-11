@@ -13,7 +13,9 @@ class BuilderBase
 {
 public:
     [[nodiscard]] const VmaAllocationCreateInfo& getAllocationCreateInfo() const;
+    [[nodiscard]] VmaAllocationCreateInfo& getAllocationCreateInfo();
     VmaAllocator getAllocator() const;
+    CreateInfoType& getCreateInfo();
     const CreateInfoType& getCreateInfo() const;
     [[nodiscard]] const std::string& getDebugName() const;
     BuilderType& setDebugName(const std::string& debugName);
@@ -31,10 +33,9 @@ public:
 protected:
     HUAN_NO_COPY(BuilderBase)
     explicit BuilderBase(VmaAllocator allocator, const CreateInfoType& createInfo);
-    CreateInfoType& getCreateInfo();
 
     VmaAllocator m_allocator{};
-    VmaAllocationCreateInfo m_allocationCreateInfo = {};
+    VmaAllocationCreateInfo m_allocationCreateInfo{};
     CreateInfoType m_createInfo{};
 #ifdef HUAN_DEBUG
     std::string m_debugName = {};
@@ -43,6 +44,12 @@ protected:
 
 template <class BuilderType, class CreateInfoType>
 const VmaAllocationCreateInfo& BuilderBase<BuilderType, CreateInfoType>::getAllocationCreateInfo() const
+{
+    return m_allocationCreateInfo;
+}
+
+template <class BuilderType, class CreateInfoType>
+VmaAllocationCreateInfo& BuilderBase<BuilderType, CreateInfoType>::getAllocationCreateInfo()
 {
     return m_allocationCreateInfo;
 }

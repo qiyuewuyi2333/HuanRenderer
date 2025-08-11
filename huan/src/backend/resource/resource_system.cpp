@@ -87,6 +87,8 @@ vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usag
             cmd.copyBuffer(stagingBuffer.getHandle(), deviceBuffer.getHandle(), copyRegion);
         });
     }
+    vulkan::ImageBuilder builderImg(allocatorHandle, size);
+    vulkan::Image img(deviceHandle, builderImg);
 
     return deviceBuffer;
 }

@@ -2,8 +2,7 @@
 // Created by 86156 on 4/21/2025.
 //
 
-#ifndef VULKAN_RESOURCES_HPP
-#define VULKAN_RESOURCES_HPP
+#pragma once
 
 #include "vk_mem_alloc.h"
 #include "huan/HelloTriangleApplication.hpp"
@@ -12,10 +11,10 @@
 #include "huan/log/Log.hpp"
 #include "vulkan/vulkan.hpp"
 #include "huan/backend/resource/vulkan_buffer.hpp"
+#include "huan/backend/resource/vulkan_image.hpp"
 
 namespace huan::runtime::vulkan
 {
-class Image;
 } // namespace huan::vulkan
 
 namespace huan::runtime
@@ -26,7 +25,9 @@ class ResourceSystem final : public DeferredSystem<ResourceSystem>
     friend class DeferredSystem<ResourceSystem>;
 
 public:
-
+    // TODO: 临时位置
+    template <typename Func>
+    void ResourceSystem::executeImmediateTransfer(Func&& func) const;
 #pragma region Buffer
 
 #pragma region 创建StagingBuffer
@@ -43,9 +44,6 @@ public:
     vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
 
 #pragma endregion
-    template <typename Func>
-    void executeImmediateTransfer(Func&& func) const;
-
 #pragma endregion
     void updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
                             vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
@@ -153,6 +151,4 @@ void ResourceSystem::executeImmediateTransfer(Func&& func) const
     scopedCmd.submitAndWait(HelloTriangleApplication::instance->transferQueue);
 }
 
-} // namespace huan
-
-#endif // VULKAN_RESOURCES_HPP
+}

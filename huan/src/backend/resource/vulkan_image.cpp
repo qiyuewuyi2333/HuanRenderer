@@ -1,5 +1,6 @@
 #include "huan/backend/resource/vulkan_image.hpp"
 
+#include "huan/backend/resource/image_view.hpp"
 #include "huan/backend/resource/resource_system.hpp"
 
 #include <stdexcept>
@@ -160,8 +161,8 @@ Image::Image(vk::Device& device,
     m_createInfo.sharingMode = vk::SharingMode::eExclusive;
 
     // 设置子资源信息
-    m_subresource.mipLevel = 0;
-    m_subresource.arrayLayer = 0;
+    m_subresource.mipLevel = 1;
+    m_subresource.arrayLayer = 1;
 
     // 根据使用标志设置适当的方面掩码
     if (imageUsage & vk::ImageUsageFlagBits::eDepthStencilAttachment)
@@ -183,9 +184,30 @@ Image::Image(vk::Device& device, const ImageBuilder& builder)
     : ParentType(device, builder.getAllocator(), builder.getAllocationCreateInfo())
       , m_createInfo(builder.getCreateInfo())
 {
+    this->setHandle(this->createImage(builder.getCreateInfo()));
+    this->m_subresource.arrayLayer = m_createInfo.arrayLayers;
+    this->m_subresource.mipLevel = m_createInfo.mipLevels;
+
+#ifdef HUAN_DEBUG
+    if (!builder.getDebugName().empty())
+    {
+        this->setDebugName(builder.getDebugName());
+    }
+#endif
 
 }
 
+
+Image::Image(Image&& other) noexcept
+    : ParentType(std::move(other)), m_createInfo(std::move(other.m_createInfo)),
+      m_subresource(std::move(other.m_subresource)),
+      m_views(std::move(other.m_views))
+{
+    for (auto& view : other.m_views)
+    {
+        view->setImage(*this);
+    }
+}
 
 Image::~Image()
 {
@@ -227,196 +249,24 @@ uint32_t Image::getArrayLayerCount() const
     return m_createInfo.arrayLayers;
 }
 
-uint32_t Image::getMipLevels() const
-{
-    return m_createInfo.mipLevels;
-}
-
 const vk::ImageSubresource& Image::getSubresource() const
 {
     return m_subresource;
 }
 
-std::unordered_set<VulkanImageView*>& Image::getViews()
+std::unordered_set<ImageView*>& Image::getViews()
 {
     return m_views;
 }
 
-const std::unordered_set<VulkanImageView*>& Image::getViews() const
+uint8_t* Image::map()
 {
-    return m_views;
-}
-
-bool Image::isSwapchainImage() const
-{
-    return isSwapchainImage_;
-}
-
-void Image::initialize()
-{
-    // 设置调试名称（如果有）
-    if (!debugName_.empty())
+    if (m_createInfo.tiling != vk::ImageTiling::eLinear)
     {
-        setDebugName(debugName_);
+        HUAN_CORE_WARN("Mapping image memory that is not linear");
     }
-
-    // 可以在这里添加其他初始化逻辑
-    // 比如设置初始布局、执行初始转换等
+    return ParentType::map();
 }
 
-void Image::cleanup()
-{
-    // 通知所有关联的图像视图即将销毁
-    for (auto* view : m_views)
-    {
-        if (view)
-        {
-            view->onImageDestroying();
-        }
-    }
-    m_views.clear();
-
-    // 销毁 Vulkan 资源
-    if (image_ && !isSwapchainImage_)
-    {
-        device_.getHandle().destroyImage(image_);
-        image_ = nullptr;
-    }
-
-    if (memory_ && ownsMemory_)
-    {
-        device_.getHandle().freeMemory(memory_);
-        memory_ = nullptr;
-    }
-}
-
-vk::DeviceSize Image::getRequiredMemorySize() const
-{
-    if (image_)
-    {
-        auto memoryRequirements = device_.getHandle().getImageMemoryRequirements(image_);
-        return memoryRequirements.size;
-    }
-    return 0;
-}
-
-bool Image::hasUsage(vk::ImageUsageFlags usage) const
-{
-    return static_cast<bool>(m_createInfo.usage & usage);
-}
-
-bool Image::isCompatibleWith(const Image& other) const
-{
-    return m_createInfo.format == other.m_createInfo.format &&
-           m_createInfo.extent.width == other.m_createInfo.extent.width &&
-           m_createInfo.extent.height == other.m_createInfo.extent.height &&
-           m_createInfo.extent.depth == other.m_createInfo.extent.depth &&
-           m_createInfo.samples == other.m_createInfo.samples &&
-           m_createInfo.arrayLayers == other.m_createInfo.arrayLayers &&
-           m_createInfo.mipLevels == other.m_createInfo.mipLevels;
-}
-
-void Image::setDebugName(const std::string& name)
-{
-    debugName_ = name;
-
-    // 设置 Vulkan 对象的调试名称（如果支持调试扩展）
-    if (image_&& device_
-
-    
-    .
-    isDebugUtilsEnabled()
-    )
-    {
-        vk::DebugUtilsObjectNameInfoEXT nameInfo{
-            .objectType = vk::ObjectType::eImage,
-            .objectHandle = reinterpret_cast<uint64_t>(static_cast<VkImage>(image_)),
-            .pObjectName = debugName_.c_str()
-        };
-
-        try
-        {
-            device_.getHandle().setDebugUtilsObjectNameEXT(nameInfo);
-        }
-        catch (const std::exception& e)
-        {
-            // 调试名称设置失败不应该中断程序
-            // 可以记录警告日志
-        }
-    }
-}
-
-std::string Image::getFormatString() const
-{
-    return vk::to_string(m_createInfo.format);
-}
-
-std::string Image::getUsageString() const
-{
-    return vk::to_string(m_createInfo.usage);
-}
-
-bool Image::isDepthStencilFormat() const
-{
-    return hasUsage(vk::ImageUsageFlagBits::eDepthStencilAttachment) ||
-           m_createInfo.format == vk::Format::eD16Unorm ||
-           m_createInfo.format == vk::Format::eD32Sfloat ||
-           m_createInfo.format == vk::Format::eD16UnormS8Uint ||
-           m_createInfo.format == vk::Format::eD24UnormS8Uint ||
-           m_createInfo.format == vk::Format::eD32SfloatS8Uint;
-}
-
-bool Image::isColorFormat() const
-{
-    return !isDepthStencilFormat();
-}
-
-uint32_t Image::calculateMipLevels() const
-{
-    return static_cast<uint32_t>(std::floor(std::log2(std::max(m_createInfo.extent.width, m_createInfo.extent.height))))
-           +
-           1;
-}
-
-vk::ImageSubresourceRange Image::getFullSubresourceRange() const
-{
-    return vk::ImageSubresourceRange{
-        .aspectMask = m_subresource.aspectMask,
-        .baseMipLevel = 0,
-        .levelCount = m_createInfo.mipLevels,
-        .baseArrayLayer = 0,
-        .layerCount = m_createInfo.arrayLayers
-    };
-}
-
-vk::ImageSubresourceRange Image::getSubresourceRange(uint32_t baseMipLevel,
-                                                     uint32_t levelCount,
-                                                     uint32_t baseArrayLayer,
-                                                     uint32_t layerCount) const
-{
-    return vk::ImageSubresourceRange{
-        .aspectMask = m_subresource.aspectMask,
-        .baseMipLevel = baseMipLevel,
-        .levelCount = levelCount == VK_REMAINING_MIP_LEVELS ? m_createInfo.mipLevels - baseMipLevel : levelCount,
-        .baseArrayLayer = baseArrayLayer,
-        .layerCount = layerCount == VK_REMAINING_ARRAY_LAYERS ? m_createInfo.arrayLayers - baseArrayLayer : layerCount
-    };
-}
-
-void Image::addView(VulkanImageView* view)
-{
-    if (view)
-    {
-        m_views.insert(view);
-    }
-}
-
-void Image::removeView(VulkanImageView* view)
-{
-    if (view)
-    {
-        m_views.erase(view);
-    }
-}
 #pragma endregion
 } // namespace huan::runtime::vulkan
