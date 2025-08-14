@@ -3,7 +3,7 @@
 //
 
 #include "huan/scene_framework/components/material.hpp"
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 Material::Material(const std::string& name) : Component(name)
 {

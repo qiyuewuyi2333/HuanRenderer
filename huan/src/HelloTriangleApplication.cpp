@@ -15,8 +15,8 @@
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_load.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-#include "huan/backend/vulkan_image.hpp"
 #include "../include/huan/backend/resource/resource_system.hpp"
+#include "huan/backend/resource/vulkan_image_view.hpp"
 #include "huan/utils/stb_image.h"
 #include "huan/utils/tiny_obj_loader.h"
 
@@ -115,7 +115,7 @@ void HelloTriangleApplication::createCommandPool()
 {
     vk::CommandPoolCreateInfo commandPoolCreateInfo;
     commandPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-        .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
+                         .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
     m_commandPool = device.createCommandPool(commandPoolCreateInfo);
     if (!m_commandPool)
         HUAN_CORE_ERROR("Failed to create graphics command pool");
@@ -131,8 +131,8 @@ void HelloTriangleApplication::createCommandBuffer()
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
     commandBufferAllocateInfo.setCommandPool(m_commandPool)
-        .setLevel(vk::CommandBufferLevel::ePrimary)
-        .setCommandBufferCount(1);
+                             .setLevel(vk::CommandBufferLevel::ePrimary)
+                             .setCommandBufferCount(1);
     for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
     {
         m_frameDatas[i].m_commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
@@ -171,11 +171,11 @@ void HelloTriangleApplication::createFrameData()
  */
 void HelloTriangleApplication::createVertexBufferAndMemory()
 {
-    vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
+    const vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
-    m_vertexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_vertices.data()));
+    m_vertexBuffer = runtime::ResourceSystem::getInstance()->createDeviceLocalBuffer(
+        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        bufferSize, (void*)(m_vertices.data()));
     HUAN_CORE_INFO("VertexBuffer created.")
 }
 
@@ -183,9 +183,9 @@ void HelloTriangleApplication::createIndexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(uint32_t) * m_indices.size();
 
-    m_indexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_indices.data()));
+    m_indexBuffer = runtime::ResourceSystem::getInstance()->createDeviceLocalBuffer(
+        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        bufferSize, (void*)(m_indices.data()));
     HUAN_CORE_INFO("IndexBuffer created.")
 }
 
@@ -195,12 +195,13 @@ void HelloTriangleApplication::createIndexBufferAndMemory()
  */
 void HelloTriangleApplication::createUniformBuffers()
 {
-    vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+    const vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
     for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
     {
-        m_frameDatas[i].m_uniformBuffer = ResourceSystem::getInstance()->createBufferNormal(
-            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, nullptr);
+        m_frameDatas[i].m_uniformBuffer = runtime::ResourceSystem::getInstance()->createStagingBuffer(
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            bufferSize, nullptr);
     }
 
     HUAN_CORE_INFO("UniformBuffers created. ")
@@ -297,16 +298,16 @@ void HelloTriangleApplication::createInstance()
     }
 
     appInfo.setApiVersion(vk::ApiVersion13)
-        .setPApplicationName(globalAppSettings.title)
-        .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
-        .setPEngineName("HuanRenderer")
-        .setEngineVersion(VK_MAKE_VERSION(1, 0, 0));
+           .setPApplicationName(globalAppSettings.title)
+           .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
+           .setPEngineName("HuanRenderer")
+           .setEngineVersion(VK_MAKE_VERSION(1, 0, 0));
 
     vkInstanceCreateInfo.setPApplicationInfo(&appInfo)
-        .setEnabledExtensionCount(requiredInstanceExtensions.size())
-        .setPpEnabledExtensionNames(requiredInstanceExtensions.data())
-        .setEnabledLayerCount(requiredLayers.size())
-        .setPpEnabledLayerNames(requiredLayers.data());
+                        .setEnabledExtensionCount(requiredInstanceExtensions.size())
+                        .setPpEnabledExtensionNames(requiredInstanceExtensions.data())
+                        .setEnabledLayerCount(requiredLayers.size())
+                        .setPpEnabledLayerNames(requiredLayers.data());
 
     if (globalAppSettings.isVulkanValidationEnabled)
     {
@@ -404,9 +405,9 @@ void HelloTriangleApplication::createDevice()
     features.samplerAnisotropy = VK_TRUE;
 
     deviceCreateInfo.setQueueCreateInfos(queueCreateInfos)
-        .setEnabledExtensionCount(static_cast<uint32_t>(requiredDeviceExtensions.size()))
-        .setPpEnabledExtensionNames(requiredDeviceExtensions.data())
-        .setPEnabledFeatures(&features);
+                    .setEnabledExtensionCount(static_cast<uint32_t>(requiredDeviceExtensions.size()))
+                    .setPpEnabledExtensionNames(requiredDeviceExtensions.data())
+                    .setPEnabledFeatures(&features);
 
     device = physicalDevice.createDevice(deviceCreateInfo);
 }
@@ -474,38 +475,38 @@ void HelloTriangleApplication::createDescriptorSets()
 
     vk::DescriptorSetAllocateInfo allocateInfo;
     allocateInfo.setDescriptorPool(m_descriptorPool)
-        .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
-        .setSetLayouts(layouts);
+                .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
+                .setSetLayouts(layouts);
 
     auto sets = device.allocateDescriptorSets(allocateInfo);
     // NOTE: 所有的渲染帧使用相同的Image 资源
     vk::DescriptorImageInfo imageInfo;
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-        .setImageView(m_textureImage->m_imageView)
-        .setSampler(m_textureSampler);
+             .setImageView((*m_textureImage->getViews().begin())->getHandle())
+             .setSampler(m_textureSampler);
 
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
     {
         m_frameDatas[i].m_descriptorSet = sets[i];
         vk::DescriptorBufferInfo bufferInfo; // 定义 描述符绑定的 资源信息 buffer or image
-        bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->m_buffer)
-            .setOffset(0)
-            .setRange(sizeof(UniformBufferObject));
+        bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->getHandle())
+                  .setOffset(0)
+                  .setRange(sizeof(UniformBufferObject));
 
         vk::WriteDescriptorSet writeBufferInfo;
         writeBufferInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
-            .setDstBinding(0)
-            .setDstArrayElement(0)
-            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-            .setDescriptorCount(1)
-            .setBufferInfo(bufferInfo);
+                       .setDstBinding(0)
+                       .setDstArrayElement(0)
+                       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                       .setDescriptorCount(1)
+                       .setBufferInfo(bufferInfo);
         vk::WriteDescriptorSet imageWriteInfo;
         imageWriteInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
-            .setDstBinding(1)
-            .setDstArrayElement(0)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setImageInfo(imageInfo);
+                      .setDstBinding(1)
+                      .setDstArrayElement(0)
+                      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                      .setDescriptorCount(1)
+                      .setImageInfo(imageInfo);
 
         device.updateDescriptorSets({writeBufferInfo, imageWriteInfo}, nullptr);
     }
@@ -517,16 +518,20 @@ void HelloTriangleApplication::createGraphicsPipeline()
 {
     HUAN_CORE_INFO("Creating graphics pipeline...")
     // Shaders
-    auto vertexShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.vert.spv");
-    auto fragShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.frag.spv");
+    // auto vertexShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.vert.spv");
+    // auto fragShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.frag.spv");
 
-    auto vertexShaderModule = Shader::createShaderModule(vertexShader);
-    auto fragShaderModule = Shader::createShaderModule(fragShader);
+    auto vsSrc = runtime::vulkan::ShaderSource("../../../../assets/Shaders/ModelsLoad/shader.vert");
+    auto vsModule = runtime::vulkan::ShaderModule{device, vk::ShaderStageFlagBits::eVertex, vsSrc, "main", {}};
+    auto fsSrc = runtime::vulkan::ShaderSource("../../../../assets/Shaders/ModelsLoad/shader.frag");
+    auto fsModule = runtime::vulkan::ShaderModule{device, vk::ShaderStageFlagBits::eFragment, fsSrc, "main", {}};
 
     vk::PipelineShaderStageCreateInfo vertexShaderStageInfo;
-    vertexShaderStageInfo.setStage(vk::ShaderStageFlagBits::eVertex).setModule(vertexShaderModule).setPName("main");
+    vertexShaderStageInfo.setStage(vk::ShaderStageFlagBits::eVertex).setModule(vsModule.getHandle()).setPName(
+        vsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
-    fragShaderStageInfo.setStage(vk::ShaderStageFlagBits::eFragment).setModule(fragShaderModule).setPName("main");
+    fragShaderStageInfo.setStage(vk::ShaderStageFlagBits::eFragment).setModule(fsModule.getHandle()).setPName(
+        fsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageInfo, fragShaderStageInfo};
 
     // Dynamic states
@@ -534,13 +539,13 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     vk::PipelineDynamicStateCreateInfo dynamicState;
     dynamicState.setDynamicStateCount(static_cast<uint32_t>(dynamicStates.size()))
-        .setPDynamicStates(dynamicStates.data());
+                .setPDynamicStates(dynamicStates.data());
     // Input state
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
     auto bindingDescriptions = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
     vertexInputInfo.setVertexBindingDescriptions(bindingDescriptions)
-        .setVertexAttributeDescriptions(attributeDescriptions);
+                   .setVertexAttributeDescriptions(attributeDescriptions);
 
     // Input assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
@@ -553,21 +558,21 @@ void HelloTriangleApplication::createGraphicsPipeline()
     // Rasterizer
     vk::PipelineRasterizationStateCreateInfo rasterizerInfo;
     rasterizerInfo.setDepthClampEnable(false)
-        .setRasterizerDiscardEnable(false)
-        .setPolygonMode(vk::PolygonMode::eFill)
-        .setCullMode(vk::CullModeFlagBits::eBack)
-        .setFrontFace(vk::FrontFace::eCounterClockwise)
-        .setDepthBiasEnable(false)
-        .setLineWidth(1.0f);
+                  .setRasterizerDiscardEnable(false)
+                  .setPolygonMode(vk::PolygonMode::eFill)
+                  .setCullMode(vk::CullModeFlagBits::eBack)
+                  .setFrontFace(vk::FrontFace::eCounterClockwise)
+                  .setDepthBiasEnable(false)
+                  .setLineWidth(1.0f);
 
     // Multisampling
     vk::PipelineMultisampleStateCreateInfo multisamplingInfo;
     multisamplingInfo.setSampleShadingEnable(false)
-        .setRasterizationSamples(vk::SampleCountFlagBits::e1)
-        .setMinSampleShading(1.0f)
-        .setPSampleMask(nullptr)
-        .setAlphaToCoverageEnable(false)
-        .setAlphaToOneEnable(false);
+                     .setRasterizationSamples(vk::SampleCountFlagBits::e1)
+                     .setMinSampleShading(1.0f)
+                     .setPSampleMask(nullptr)
+                     .setAlphaToCoverageEnable(false)
+                     .setAlphaToOneEnable(false);
 
     // Depth and stencil testing
     // TODO: for now, nullptr
@@ -598,20 +603,20 @@ void HelloTriangleApplication::createGraphicsPipeline()
     // Global Color blend state
     vk::PipelineColorBlendStateCreateInfo colorBlendInfo;
     colorBlendInfo.setLogicOpEnable(false)
-        .setLogicOp(vk::LogicOp::eCopy)
-        .setAttachmentCount(1)
-        .setPAttachments(&colorBlendAttachment)
-        .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+                  .setLogicOp(vk::LogicOp::eCopy)
+                  .setAttachmentCount(1)
+                  .setPAttachments(&colorBlendAttachment)
+                  .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
 
     // 深度与模板缓冲
     vk::PipelineDepthStencilStateCreateInfo depthStencilInfo{};
     depthStencilInfo.setDepthTestEnable(true)
-        .setDepthWriteEnable(true)
-        .setDepthCompareOp(vk::CompareOp::eLess)
-        .setDepthBoundsTestEnable(false)
-        .setMinDepthBounds(0.0f)
-        .setMaxDepthBounds(1.0f)
-        .setStencilTestEnable(false);
+                    .setDepthWriteEnable(true)
+                    .setDepthCompareOp(vk::CompareOp::eLess)
+                    .setDepthBoundsTestEnable(false)
+                    .setMinDepthBounds(0.0f)
+                    .setMaxDepthBounds(1.0f)
+                    .setStencilTestEnable(false);
 
     // Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
@@ -625,20 +630,20 @@ void HelloTriangleApplication::createGraphicsPipeline()
 
     vk::GraphicsPipelineCreateInfo pipelineInfo;
     pipelineInfo.setStageCount(2)
-        .setPStages(shaderStages)
-        .setPVertexInputState(&vertexInputInfo)
-        .setPInputAssemblyState(&inputAssembly)
-        .setPViewportState(&viewportState)
-        .setPRasterizationState(&rasterizerInfo)
-        .setPMultisampleState(&multisamplingInfo)
-        .setPColorBlendState(&colorBlendInfo)
-        .setPDepthStencilState(&depthStencilInfo)
-        .setPDynamicState(&dynamicState)
-        .setLayout(m_pipelineLayout)
-        .setRenderPass(m_renderPass)
-        .setSubpass(0)
-        .setBasePipelineHandle(nullptr)
-        .setBasePipelineIndex(-1);
+                .setPStages(shaderStages)
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizerInfo)
+                .setPMultisampleState(&multisamplingInfo)
+                .setPColorBlendState(&colorBlendInfo)
+                .setPDepthStencilState(&depthStencilInfo)
+                .setPDynamicState(&dynamicState)
+                .setLayout(m_pipelineLayout)
+                .setRenderPass(m_renderPass)
+                .setSubpass(0)
+                .setBasePipelineHandle(nullptr)
+                .setBasePipelineIndex(-1);
 
     auto pipelineRes = device.createGraphicsPipeline(nullptr, pipelineInfo);
     if (pipelineRes.result != vk::Result::eSuccess)
@@ -648,8 +653,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
     m_graphicsPipeline = pipelineRes.value;
     HUAN_CORE_INFO("Graphics pipeline created!")
 
-    device.destroyShaderModule(vertexShaderModule);
-    device.destroyShaderModule(fragShaderModule);
+    // device.destroyShaderModule(vertexShaderModule);
+    // device.destroyShaderModule(fragShaderModule);
 }
 
 /**
@@ -660,16 +665,16 @@ void HelloTriangleApplication::createDescriptorSetLayout()
 {
     vk::DescriptorSetLayoutBinding uboLayoutBinding;
     uboLayoutBinding.setBinding(0)
-        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-        .setDescriptorCount(1)
-        .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
-        .setPImmutableSamplers(nullptr);
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
+                    .setPImmutableSamplers(nullptr);
     vk::DescriptorSetLayoutBinding combinedImageSamplerBinding;
     combinedImageSamplerBinding.setBinding(1)
-        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-        .setDescriptorCount(1)
-        .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-        .setPImmutableSamplers(nullptr);
+                               .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                               .setDescriptorCount(1)
+                               .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                               .setPImmutableSamplers(nullptr);
 
     std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, combinedImageSamplerBinding};
 
@@ -689,16 +694,16 @@ void HelloTriangleApplication::createRenderPass()
 {
     vk::AttachmentDescription colorAttachment;
     colorAttachment.setFormat(swapchain->getImageFormat())
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setLoadOp(vk::AttachmentLoadOp::eClear) // Before rendering
-        .setStoreOp(vk::AttachmentStoreOp::eStore)
-        // After rendering, we want to keep the contents for display on the screen
-        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        // the format of framebuffer or texture. Initial layout specifies the layout the image will have before the
-        // render pass begin.
-        .setFinalLayout(vk::ImageLayout::ePresentSrcKHR); // Auto transition to when the RenderPass ends.
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setLoadOp(vk::AttachmentLoadOp::eClear) // Before rendering
+                   .setStoreOp(vk::AttachmentStoreOp::eStore)
+                   // After rendering, we want to keep the contents for display on the screen
+                   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   // the format of framebuffer or texture. Initial layout specifies the layout the image will have before the
+                   // render pass begin.
+                   .setFinalLayout(vk::ImageLayout::ePresentSrcKHR); // Auto transition to when the RenderPass ends.
     // NOTE: we don't care about the frame buffer's layout before the render pass begins, because we will clear it when
     // load. But after the render pass ends, we want to transition the image to the layout that is optimal for
     // presentation to the screen.
@@ -711,20 +716,20 @@ void HelloTriangleApplication::createRenderPass()
     // 在RenderPass中使用深度 缓冲
     vk::AttachmentDescription depthAttachment;
     depthAttachment.setFormat(findDepthFormat())
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setLoadOp(vk::AttachmentLoadOp::eClear)
-        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setLoadOp(vk::AttachmentLoadOp::eClear)
+                   .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
     vk::AttachmentReference depthAttachmentRef = {};
     depthAttachmentRef.setAttachment(1).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::SubpassDescription subpass;
     subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-        .setColorAttachments(colorAttachmentRef)
-        .setPDepthStencilAttachment(&depthAttachmentRef); // subpass 只能使用一个深度附件
+           .setColorAttachments(colorAttachmentRef)
+           .setPDepthStencilAttachment(&depthAttachmentRef); // subpass 只能使用一个深度附件
 
     vk::SubpassDependency subpassDependency;
     // this dependency is used to make sure that the color attachment is ready before the beginning of the subpass.
@@ -732,13 +737,14 @@ void HelloTriangleApplication::createRenderPass()
     // part of the render pass. And if the dst is 0, it means before the subpass. So if src is 0, it means after the
     // subpasses.
     subpassDependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
-        .setDstSubpass(0)
-        .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                         vk::PipelineStageFlagBits::eEarlyFragmentTests)
-        .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                         vk::PipelineStageFlagBits::eEarlyFragmentTests)
-        .setSrcAccessMask(vk::AccessFlagBits::eNone)
-        .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+                     .setDstSubpass(0)
+                     .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                                      vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                     .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                                      vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                     .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                     .setDstAccessMask(
+                         vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
     std::array<vk::AttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 
     vk::RenderPassCreateInfo renderPassInfo;
@@ -756,12 +762,12 @@ void HelloTriangleApplication::createFramebuffers()
     // Because the imageView essentially is a wrapper of the correspond image in the swapchain. (or a super set).
     vk::FramebufferCreateInfo framebufferInfo;
     framebufferInfo.setRenderPass(m_renderPass)
-        .setWidth(swapchain->m_info.extent.width)
-        .setHeight(swapchain->m_info.extent.height)
-        .setLayers(1); // The number of layers of the imageView.
+                   .setWidth(swapchain->m_info.extent.width)
+                   .setHeight(swapchain->m_info.extent.height)
+                   .setLayers(1); // The number of layers of the imageView.
     for (size_t i = 0; i < swapchain->m_imageViews.size(); i++)
     {
-        std::array attachments = {swapchain->m_imageViews[i], m_depthImage->m_imageView};
+        std::array attachments = {swapchain->m_imageViews[i], (*m_depthImage->getViews().begin())->getHandle()};
         framebufferInfo.setAttachments(attachments);
 
         m_swapchainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
@@ -805,14 +811,14 @@ void HelloTriangleApplication::createDepthResources()
 {
     vk::Format depthFormat = findDepthFormat();
     // TODO: deviceLocal但是直接Dynamic 可能会导致错误 待修复
-    m_depthImage = ResourceSystem::getInstance()->createImageDeviceLocal(
+    m_depthImage = runtime::ResourceSystem::getInstance()->createImage(
         vk::ImageType::e2D, vk::Extent3D(swapchain->m_info.extent.width, swapchain->m_info.extent.height, 1), 1,
         depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
-    ResourceSystem::getInstance()->createImageView(*m_depthImage, vk::ImageViewType::e2D, depthFormat,
-                                                   vk::ImageAspectFlagBits::eDepth, 1);
-    ResourceSystem::getInstance()->transitionImageLayout(
-        m_depthImage->m_image, depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
+    auto view = runtime::ResourceSystem::createImageView(*m_depthImage, vk::ImageViewType::e2D, depthFormat,
+                                                         0);
+    runtime::ResourceSystem::transitionImageLayout(
+        m_depthImage->getHandle(), depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
 }
 
 void HelloTriangleApplication::createTextureImage()
@@ -824,34 +830,36 @@ void HelloTriangleApplication::createTextureImage()
     if (!pixels)
         HUAN_CORE_BREAK("Failed to load texture image! ")
 
-    m_textureImage = ResourceSystem::getInstance()->createImageDeviceLocal(
+    m_textureImage = runtime::ResourceSystem::getInstance()->createImage(
         vk::ImageType::e2D, vk::Extent3D(texWidth, texHeight, 1), 1, vk::Format::eR8G8B8A8Srgb,
         vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, pixels);
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        pixels);
 
     stbi_image_free(pixels);
-    ResourceSystem::getInstance()->createImageView(*m_textureImage, vk::ImageViewType::e2D, vk::Format::eR8G8B8A8Srgb,
-                                                   vk::ImageAspectFlagBits::eColor, 1);
+    runtime::ResourceSystem::createImageView(*m_textureImage, vk::ImageViewType::e2D,
+                                             vk::Format::eR8G8B8A8Srgb,
+                                             0);
 }
 
 void HelloTriangleApplication::createTextureSampler()
 {
     vk::SamplerCreateInfo samplerInfo;
     samplerInfo.setMagFilter(vk::Filter::eLinear)
-        .setMinFilter(vk::Filter::eLinear)
-        .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-        .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-        .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-        .setAnisotropyEnable(VK_TRUE)
-        .setMaxAnisotropy(physicalDevice.getProperties().limits.maxSamplerAnisotropy)
-        .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-        .setUnnormalizedCoordinates(VK_FALSE)
-        .setCompareEnable(VK_FALSE)
-        .setCompareOp(vk::CompareOp::eAlways)
-        .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-        .setMipLodBias(0.0f)
-        .setMinLod(0.0f)
-        .setMaxLod(0.0f);
+               .setMinFilter(vk::Filter::eLinear)
+               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+               .setAnisotropyEnable(VK_TRUE)
+               .setMaxAnisotropy(physicalDevice.getProperties().limits.maxSamplerAnisotropy)
+               .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+               .setUnnormalizedCoordinates(VK_FALSE)
+               .setCompareEnable(VK_FALSE)
+               .setCompareOp(vk::CompareOp::eAlways)
+               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+               .setMipLodBias(0.0f)
+               .setMinLod(0.0f)
+               .setMaxLod(0.0f);
 
     m_textureSampler = device.createSampler(samplerInfo);
 }
@@ -1053,7 +1061,7 @@ void HelloTriangleApplication::updateUniformBuffer()
     ubo.m_proj[1][1] *= -1;
     ubo.m_view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    ResourceSystem::getInstance()->updateDataInBuffer(*curUniformBuffer, &ubo, sizeof(ubo));
+    curUniformBuffer->updateDirectly(static_cast<void*>(&ubo), sizeof(ubo), 0);
 }
 
 void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1066,8 +1074,8 @@ void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuff
 
     vk::RenderPassBeginInfo renderPassInfo;
     renderPassInfo.setRenderPass(m_renderPass)
-        .setFramebuffer(m_swapchainFramebuffers[imageIndex])
-        .setRenderArea(vk::Rect2D{{}, swapchain->m_info.extent});
+                  .setFramebuffer(m_swapchainFramebuffers[imageIndex])
+                  .setRenderArea(vk::Rect2D{{}, swapchain->m_info.extent});
     // 联合体 NOTE: clearValues中的顺序应当和AttachmentDescription的顺序一致
     std::array<vk::ClearValue, 2> clearValues = {{{{129.0 / 255.0, 216.0 / 255.0, 207.0 / 255.0, 1.0f}}, {{1, 0}}}};
 
@@ -1079,10 +1087,10 @@ void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuff
     vk::Rect2D scissor{{0, 0}, swapchain->m_info.extent};
     commandBuffer.setScissor(0, 1, &scissor);
 
-    vk::Buffer vertexBuffers[] = {m_vertexBuffer->m_buffer};
+    vk::Buffer vertexBuffers[] = {m_vertexBuffer->getHandle()};
     vk::DeviceSize offsets[] = {0};
     commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
-    commandBuffer.bindIndexBuffer(m_indexBuffer->m_buffer, 0, vk::IndexType::eUint32);
+    commandBuffer.bindIndexBuffer(m_indexBuffer->getHandle(), 0, vk::IndexType::eUint32);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, 1,
                                      &m_frameDatas[m_currentFrame].m_descriptorSet, 0, nullptr);
 
@@ -1113,8 +1121,11 @@ void HelloTriangleApplication::recreateSwapchain()
         device.destroyFramebuffer(swapchainFramebuffer);
     }
     swapchain.reset();
-    device.destroyImageView(m_depthImage->m_imageView);
-    ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
+    for (auto& view : m_depthImage->getViews())
+    {
+        delete view;
+    };
+    m_depthImage.reset();
 
     // Create
     createSwapchain();
@@ -1133,14 +1144,18 @@ void HelloTriangleApplication::cleanup()
         device.destroyFence(frameData.m_fence);
         device.destroySemaphore(frameData.m_renderFinishedSemaphore);
         device.destroySemaphore(frameData.m_imageAvailableSemaphore);
-        ResourceSystem::getInstance()->destroyBuffer(frameData.m_uniformBuffer.get());
+        frameData.m_uniformBuffer.reset();
     }
     HUAN_CORE_INFO("FrameDatas destroyed.")
 
     device.destroyCommandPool(m_commandPool);
     device.destroyCommandPool(m_transferCommandPool);
     HUAN_CORE_INFO("CommandPool destroyed.")
-    ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
+    for (auto& view : m_depthImage->getViews())
+    {
+        delete view;
+    };
+    m_depthImage.reset();
     HUAN_CORE_INFO("Depth image and view destroyed.")
     for (auto& framebuffer : m_swapchainFramebuffers)
     {
@@ -1163,11 +1178,15 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("Surface destroyed.")
     device.destroySampler(m_textureSampler);
     HUAN_CORE_INFO("Sampler destroyed.")
-    ResourceSystem::getInstance()->destroyImage(m_textureImage.get());
+    for (auto& view : m_textureImage->getViews())
+    {
+        delete view;
+    };
+    m_textureImage.reset();
     HUAN_CORE_INFO("m_textureImage and view freed! ")
-    ResourceSystem::getInstance()->destroyBuffer(m_vertexBuffer.get());
+    m_vertexBuffer.reset();
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
-    ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());
+    m_indexBuffer.reset();
     HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
     vmaDestroyAllocator(allocator);
     HUAN_CORE_INFO("Allocator destroyed.")

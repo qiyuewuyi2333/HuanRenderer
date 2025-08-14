@@ -1,141 +1,92 @@
 //
 // Created by 86156 on 4/21/2025.
 //
-#include "../../../include/huan/backend/resource/resource_system.hpp"
+#include "huan/backend/resource/resource_system.hpp"
 
 #include "huan/HelloTriangleApplication.hpp"
 #include "huan/backend/vulkan_command.hpp"
+#include "huan/backend/resource/vulkan_image_view.hpp"
 #include "huan/log/Log.hpp"
 
 namespace huan::runtime
 {
 
-// Scope<vulkan::Buffer> ResourceSystem::createBufferByStagingBuffer(vk::DeviceSize size, vk::BufferUsageFlags usage,
-//                                                                   vk::MemoryPropertyFlags memoryProperties,
-//                                                                   void* srcData)
-// {
-//     return createScope<EnableCreateScope>(tempObj);
-// }
-//
-// Scope<vulkan::Buffer> ResourceSystem::createBufferNormal(vk::DeviceSize size, vk::BufferUsageFlags usage, void* srcData)
-// {
-//     // 使用具备类实现私有构造函数
-//     struct EnableCreateScope : public vulkan::Buffer
-//     {
-//         explicit EnableCreateScope(Buffer& that) : Buffer(that)
-//         {
-//         }
-//     };
-//
-//     vulkan::Buffer tempObj;
-//     tempObj.m_writeType = vulkan::Buffer::WriteType::Dynamic;
-//
-//     vk::BufferCreateInfo bufferInfo;
-//     bufferInfo.setSize(size).setUsage(usage).setSharingMode(vk::SharingMode::eExclusive);
-//
-//     VmaAllocationCreateInfo allocationCreateInfo = {};
-//     allocationCreateInfo.flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT;
-//     allocationCreateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-//
-//     vmaCreateBuffer(allocatorHandle, reinterpret_cast<VkBufferCreateInfo*>(&bufferInfo), &allocationCreateInfo,
-//                     reinterpret_cast<VkBuffer*>(&tempObj.m_buffer), &tempObj.m_allocation, nullptr);
-//
-//     updateDataInBuffer(tempObj, srcData, size);
-//
-//     if (!tempObj.m_buffer)
-//         HUAN_CORE_BREAK("[ResourceSystem]: Failed to create buffer");
-//     if (!tempObj.m_allocation)
-//         HUAN_CORE_BREAK("[ResourceSystem]: Failed to allocate memory! ");
-//     return createScope<EnableCreateScope>(tempObj);
-// }
-
-vulkan::Buffer ResourceSystem::createStagingBuffer(vk::BufferUsageFlags usage,
-                                                   vk::DeviceSize size,
-                                                   const void* srcData)
+Scope<vulkan::Buffer> ResourceSystem::createStagingBuffer(vk::BufferUsageFlags usage,
+                                                          vk::DeviceSize size,
+                                                          const void* srcData)
 {
     vulkan::BufferBuilder builder(allocatorHandle, size);
     builder.setVmaFlags(VMA_ALLOCATION_CREATE_MAPPED_BIT | VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT)
            .setUsage(vk::BufferUsageFlagBits::eTransferSrc | usage);
-    vulkan::Buffer res(deviceHandle, builder);
+    auto res = builder.buildScope(deviceHandle);
     if (srcData != nullptr)
     {
-        res.updateWithMapping(srcData, size);
+        res->updateWithMapping(srcData, size);
     }
 
     return res;
 }
 
-vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, void* srcData)
+Scope<vulkan::Buffer> ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                                              void* srcData)
 {
     // 创建 device local buffer
     vulkan::BufferBuilder builder(allocatorHandle, size);
     builder.setVmaUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
            .setUsage(usage | vk::BufferUsageFlagBits::eTransferDst);
 
-    vulkan::Buffer deviceBuffer(deviceHandle, builder);
+    auto deviceBuffer = builder.buildScope(deviceHandle);
 
     // 如果有源数据，通过 staging buffer 传输
     if (srcData != nullptr)
     {
         executeImmediateTransfer([&](vk::CommandBuffer cmd) {
             // 创建临时 staging buffer
-            vulkan::Buffer stagingBuffer = createStagingBuffer(usage, size, srcData);
+            auto stagingBuffer = createStagingBuffer(usage, size, srcData);
 
             // 记录复制命令
             vk::BufferCopy copyRegion{};
             copyRegion.size = size;
-            cmd.copyBuffer(stagingBuffer.getHandle(), deviceBuffer.getHandle(), copyRegion);
+            cmd.copyBuffer(stagingBuffer->getHandle(), deviceBuffer->getHandle(), copyRegion);
+            m_deletingBufferQueue.emplace(std::move(stagingBuffer));
         });
     }
-    vulkan::ImageBuilder builderImg(allocatorHandle, size);
-    vulkan::Image img(deviceHandle, builderImg);
-
     return deviceBuffer;
 }
 
+Scope<vulkan::Image> ResourceSystem::createImage(vk::ImageType imageType, const vk::Extent3D& extent,
+                                                 uint32_t mipLevels,
+                                                 vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+                                                 vk::MemoryPropertyFlags properties,
+                                                 void* data)
+{
+    vulkan::ImageBuilder builder(allocatorHandle, extent);
+    builder.setImageType(imageType)
+           .setMipLevels(mipLevels)
+           .setFormat(format)
+           .setTiling(tiling)
+           .setUsage(usage)
+           .setVmaPreferredFlags(properties);
 
-// void ResourceSystem::updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
-//                                         vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
-// {
-//     if (srcData == nullptr)
-//     {
-//         HUAN_CORE_ERROR("[ResourceSystem]: Failed to update data to buffer. Because the srcData is nullptr.");
-//         return;
-//     }
-//     if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Dynamic)
-//     {
-//         vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetBuffer.m_allocation,
-//                                   dstOffset, size);
-//     }
-//     else if (targetBuffer.m_writeType == vulkan::Buffer::WriteType::Static)
-//     {
-//         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
-//         copyBufferToBuffer(targetBuffer.m_buffer, stagingBuffer->m_buffer, size);
-//         destroyBuffer(stagingBuffer.get());
-//     }
-// }
-//
-// void ResourceSystem::updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size,
-//                                        vk::DeviceSize srcOffset, vk::DeviceSize dstOffset)
-// {
-//     if (srcData == nullptr)
-//     {
-//         HUAN_CORE_ERROR("Failed to update data to image. ")
-//         return;
-//     }
-//     if (targetImage.m_writeType == vulkan::Image::WriteType::Dynamic)
-//     {
-//         vmaCopyMemoryToAllocation(allocatorHandle, static_cast<char*>(srcData) + srcOffset, targetImage.m_allocation,
-//                                   dstOffset, size);
-//     }
-//     else if (targetImage.m_writeType == vulkan::Image::WriteType::Static)
-//     {
-//         auto stagingBuffer = createBufferNormal(size, vk::BufferUsageFlagBits::eTransferSrc, srcData);
-//         copyBufferToImage(stagingBuffer->m_buffer, targetImage.m_image, targetImage.m_extent);
-//         destroyBuffer(stagingBuffer.get());
-//     }
-// }
-//
+    auto image = builder.buildUnique(deviceHandle);
+    vk::MemoryRequirements memoryRequirements{};
+    deviceHandle.getImageMemoryRequirements(image->getHandle(), &memoryRequirements);
+
+    if (data != nullptr)
+    {
+        auto stagingBuffer = createStagingBuffer(vk::BufferUsageFlagBits::eTransferSrc, memoryRequirements.size, data);
+        transitionImageLayout(image->getHandle(), format, vk::ImageLayout::eUndefined,
+                              vk::ImageLayout::eTransferDstOptimal);
+        copyBufferToImage(stagingBuffer->getHandle(), image->getHandle(), extent);
+        transitionImageLayout(image->getHandle(), format, vk::ImageLayout::eTransferDstOptimal,
+                              vk::ImageLayout::eShaderReadOnlyOptimal);
+        stagingBuffer.reset();
+    }
+
+    return image;
+}
+
+
 // Scope<vulkan::Image> ResourceSystem::createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent,
 //                                                             uint32_t mipLevels, vk::Format format,
 //                                                             vk::ImageTiling tiling, vk::ImageUsageFlags usage,
@@ -189,59 +140,7 @@ vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usag
 //
 //     return createScope<EnableCreateScope>(tempObj);
 // }
-//
-// Scope<vulkan::Image> ResourceSystem::createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent,
-//                                                        uint32_t mipLevels, vk::Format format, vk::ImageTiling tiling,
-//                                                        vk::ImageUsageFlags usage, vk::MemoryPropertyFlags properties,
-//                                                        void* data)
-// {
-//     class EnableCreateScope final : public vulkan::Image
-//     {
-//     public:
-//         explicit EnableCreateScope(vulkan::Image& that) : vulkan::Image(that)
-//         {
-//         }
-//     };
-//
-//     vulkan::Image tempObj;
-//     tempObj.m_writeType = vulkan::Image::WriteType::Dynamic;
-//     tempObj.m_extent = extent;
-//
-//     vk::ImageCreateInfo imageCreateInfo;
-//     imageCreateInfo.setImageType(imageType)
-//                    .setExtent(extent)
-//                    .setMipLevels(mipLevels)
-//                    .setArrayLayers(1)
-//                    .setFormat(format)
-//                    .setTiling(tiling)
-//                    .setInitialLayout(vk::ImageLayout::eUndefined)
-//                    .setUsage(usage)
-//                    .setSamples(vk::SampleCountFlagBits::e1)
-//                    .setSharingMode(vk::SharingMode::eExclusive)
-//                    .setQueueFamilyIndexCount(0)
-//                    .setPQueueFamilyIndices(nullptr)
-//                    .setFlags(vk::ImageCreateFlags());
-//
-//     VmaAllocationCreateInfo memoryAllocateInfo = {};
-//     memoryAllocateInfo.usage = VMA_MEMORY_USAGE_AUTO;
-//     VmaAllocationInfo allocationInfo;
-//     vmaCreateImage(allocatorHandle, reinterpret_cast<VkImageCreateInfo*>(&imageCreateInfo), &memoryAllocateInfo,
-//                    reinterpret_cast<VkImage*>(&tempObj.m_image), &tempObj.m_allocation, &allocationInfo);
-//
-//     updateDataInImage(tempObj, data, allocationInfo.size);
-//
-//     return createScope<EnableCreateScope>(tempObj);
-// }
-//
-// void ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
-//                                      vk::ImageAspectFlags aspectFlags, uint32_t mipLevels)
-// {
-//     image.m_viewInfo.setImage(image.m_image).setViewType(viewType).setFormat(format).setSubresourceRange(
-//         vk::ImageSubresourceRange(aspectFlags, 0, mipLevels, 0, 1));
-//
-//     image.m_imageView = deviceHandle.createImageView(image.m_viewInfo);
-// }
-//
+
 /**
  * 获取满足类型筛选(typeFilter)和目标内存属性properties的内存类型索引
  * @param typeFilter
@@ -258,6 +157,20 @@ uint32_t ResourceSystem::findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::Me
     }
     HUAN_CORE_BREAK("Failed to find suitable memory type! ")
     return 0;
+}
+
+/**
+ * 
+ * @param image 
+ * @param imageViewType 
+ * @param format 
+ * @param mipLevels 生成的MipLevel的级数
+ */
+vulkan::ImageView* ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType imageViewType,
+                                                  vk::Format format,
+                                                  uint32_t mipLevels)
+{
+    return new vulkan::ImageView{image, imageViewType, format, mipLevels};
 }
 
 /**
@@ -335,35 +248,21 @@ void ResourceSystem::transitionImageLayout(vk::Image image, vk::Format format, v
     commandSystem->endSingleTimeCommands(commandPool, commandBuffer);
 }
 
-bool ResourceSystem::hasStencilComponent(const vk::Format format) const
+bool ResourceSystem::hasStencilComponent(const vk::Format format)
 {
     return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 }
 
-bool ResourceSystem::isDepthStencilFormat(vk::Format format) const
+bool ResourceSystem::isDepthStencilFormat(vk::Format format)
 {
     return format == vk::Format::eD16Unorm || format == vk::Format::eD32Sfloat ||
            format == vk::Format::eD24UnormS8Uint || format == vk::Format::eD32SfloatS8Uint ||
            format == vk::Format::eD16UnormS8Uint;
 }
 
-void ResourceSystem::copyBufferToBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size)
-{
-    // TODO: With queue family info, dynamically select the commandPool
-    auto commandSystem = CommandSystem::getInstance();
-    auto commandPool = HelloTriangleApplication::getInstance()->m_commandPool;
-    auto commandBuffer = commandSystem->beginSingleTimeCommands(commandPool);
-
-    vk::BufferCopy region;
-    region.setSize(size);
-    commandBuffer.copyBuffer(srcBuffer, dstBuffer, 1, &region);
-
-    commandSystem->endSingleTimeCommands(commandPool, commandBuffer);
-}
-
 void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, vk::Extent3D extent)
 {
-    auto commandSystem = CommandSystem::getInstance();
+    const auto commandSystem = CommandSystem::getInstance();
     auto commandPool = HelloTriangleApplication::getInstance()->m_commandPool;
     auto commandBuffer = commandSystem->beginSingleTimeCommands(commandPool);
 

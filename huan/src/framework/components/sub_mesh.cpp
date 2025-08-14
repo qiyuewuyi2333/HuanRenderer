@@ -2,9 +2,10 @@
 // Created by 86156 on 5/9/2025.
 //
 
-#include "../../../include/huan/scene_framework/components/sub_mesh.hpp"
+#include "huan/scene_framework/components/sub_mesh.hpp"
+#include "huan/backend/resource/vulkan_buffer.hpp"
 
-namespace huan::engine
+namespace huan::framework::scene_graph
 {
 SubMesh::SubMesh(const std::string& name)
     : Component(name)
@@ -43,12 +44,12 @@ const Material* SubMesh::getMaterial() const
     return m_material;
 }
 
-const vulkan::ShaderVariant& SubMesh::getShaderVariant() const
+const runtime::vulkan::ShaderVariant& SubMesh::getShaderVariant() const
 {
     return m_shaderVariant;
 }
 
-vulkan::ShaderVariant& SubMesh::getMutableShaderVariant()
+runtime::vulkan::ShaderVariant& SubMesh::getMutableShaderVariant()
 {
     return m_shaderVariant;
 }
@@ -59,7 +60,6 @@ void SubMesh::computeShaderVariant()
     if (m_material)
     {
         // TODO: Texture
-        for ()
     }
 }
 }

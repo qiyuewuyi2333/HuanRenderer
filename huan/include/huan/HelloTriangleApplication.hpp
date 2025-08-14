@@ -21,7 +21,7 @@ struct GLFWwindow;
 
 namespace huan
 {
-namespace vulkan
+namespace runtime::vulkan
 {
 class Image;
 class Buffer;
@@ -70,7 +70,7 @@ struct VulkanFrameData
     vk::Semaphore m_imageAvailableSemaphore;
     vk::Semaphore m_renderFinishedSemaphore;
 
-    Scope<vulkan::Buffer> m_uniformBuffer;
+    Scope<runtime::vulkan::Buffer> m_uniformBuffer;
     vk::DescriptorSet m_descriptorSet;
 };
 
@@ -198,13 +198,13 @@ INNER_VISIBLE:
     std::vector<VulkanFrameData> m_frameDatas;
     uint32_t m_currentFrame = 0;
 
-    Scope<vulkan::Buffer> m_vertexBuffer;
-    Scope<vulkan::Buffer> m_indexBuffer;
+    Scope<runtime::vulkan::Buffer> m_vertexBuffer;
+    Scope<runtime::vulkan::Buffer> m_indexBuffer;
 
-    Scope<vulkan::Image> m_textureImage;
+    Scope<runtime::vulkan::Image> m_textureImage;
     vk::Sampler m_textureSampler;
 
-    Scope<vulkan::Image> m_depthImage;
+    Scope<runtime::vulkan::Image> m_depthImage;
 
 
     bool initialized = false;

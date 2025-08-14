@@ -1,8 +1,7 @@
 #include "huan/backend/resource/vulkan_image.hpp"
 
-#include "huan/backend/resource/image_view.hpp"
+#include "huan/backend/resource/vulkan_image_view.hpp"
 #include "huan/backend/resource/resource_system.hpp"
-
 #include <stdexcept>
 
 namespace huan::runtime::vulkan
@@ -197,10 +196,9 @@ Image::Image(vk::Device& device, const ImageBuilder& builder)
 
 }
 
-
 Image::Image(Image&& other) noexcept
-    : ParentType(std::move(other)), m_createInfo(std::move(other.m_createInfo)),
-      m_subresource(std::move(other.m_subresource)),
+    : ParentType(std::move(other)), m_createInfo(other.m_createInfo),
+      m_subresource(other.m_subresource),
       m_views(std::move(other.m_views))
 {
     for (auto& view : other.m_views)

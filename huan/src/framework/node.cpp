@@ -6,7 +6,7 @@
 
 #include "huan/scene_framework/component.hpp"
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 
 Node::Node(size_t id, const std::string& name)

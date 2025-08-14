@@ -57,7 +57,7 @@ public:
      * Does nothing if the allocation is already mapped ( including persistently mapped).
      * @return Pointer to host visible memory.
      */
-    uint8_t* map();
+    virtual uint8_t* map();
     /**
      * @return Mapping status.
      */
@@ -75,7 +75,7 @@ public:
      * @param offset Pos to start
      * @return
      */
-    size_t updateDirectly(const uint8_t* data, size_t size, size_t offset = 0) const;
+    size_t updateDirectly(const uint8_t* data, size_t size, size_t offset = 0);
     /**
      * Update with mapping and unmapping for non-persistent memory. Please don't use this function if you want to update
      * one memory for many times.
@@ -218,7 +218,7 @@ void VulkanAllocated<ResourceType>::unmap()
 }
 
 template <class ResourceType>
-size_t VulkanAllocated<ResourceType>::updateDirectly(const uint8_t* data, size_t size, size_t offset) const
+size_t VulkanAllocated<ResourceType>::updateDirectly(const uint8_t* data, size_t size, size_t offset) 
 {
     std::copy_n(data, size, m_mappedData + offset);
     flush(offset, size);
@@ -290,7 +290,7 @@ vk::Image VulkanAllocated<ResourceType>::createImage(const vk::ImageCreateInfo& 
 {
     HUAN_CORE_ASSERT(0 < createInfo.mipLevels, "Mip levels must be greater than 0");
     HUAN_CORE_ASSERT(0 < createInfo.arrayLayers, "Array layers must be greater than 0");
-    HUAN_CORE_ASSERT(createInfo.usage, "Usage must be greater than 0");
+    HUAN_CORE_ASSERT(static_cast<VkImageUsageFlags>(createInfo.usage) != 0, "Usage must not equal 0");
 
     vk::Image image = VK_NULL_HANDLE;
     VmaAllocationInfo allocationInfo{};

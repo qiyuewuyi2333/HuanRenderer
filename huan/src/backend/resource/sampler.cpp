@@ -6,7 +6,7 @@
 
 #include "huan/log/Log.hpp"
 
-namespace huan::vulkan
+namespace huan::runtime::vulkan
 {
 
 Sampler::Sampler(vk::Device& deviceHandle, const vk::SamplerCreateInfo& info)

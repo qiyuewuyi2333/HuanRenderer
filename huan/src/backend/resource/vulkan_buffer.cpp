@@ -57,7 +57,7 @@ vk::DeviceSize Buffer::getSize() const
 
 vk::DeviceSize Buffer::getDeviceAddress() const
 {
-    return this->getDeviceHandle().getBufferAddress({.buffer = getHandle()});
+    return this->getDeviceHandle().getBufferAddress(vk::BufferDeviceAddressInfo{ getHandle()});
 }
 
 #pragma endregion

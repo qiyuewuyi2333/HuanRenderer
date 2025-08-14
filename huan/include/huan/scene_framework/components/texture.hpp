@@ -5,13 +5,13 @@
 #pragma once
 #include "huan/scene_framework/component.hpp"
 
-namespace huan::vulkan
+namespace huan::runtime::vulkan
 {
 class Sampler;
 class Image;
 } // namespace huan::vulkan
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 class Texture : public Component
 {
@@ -21,12 +21,11 @@ class Texture : public Component
     Texture(Texture&& that) = default;
     virtual ~Texture() = default;
     [[nodiscard]] virtual std::type_index getType() const override;
-    void setImage(vulkan::Image* image);
-    [[nodiscard]] vulkan::Image* getImage() const;
-    void setSampler(vulkan::Sampler sampler);
+    void setImage(runtime::vulkan::Image* image);
+    [[nodiscard]] runtime::vulkan::Image* getImage() const;
+    void setSampler(runtime::vulkan::Sampler sampler);
 
 private:
-    vulkan::Image* 
 };
 
 } // namespace huan::framework

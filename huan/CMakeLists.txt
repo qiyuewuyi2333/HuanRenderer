@@ -1,7 +1,7 @@
 project(Renderer)
 message("Current Project name: " ${PROJECT_NAME})
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     option(HUAN_DEBUG "Debug mode" ON)
 else ()
     option(HUAN_DEBUG "Debug mode" OFF)
@@ -10,83 +10,26 @@ endif ()
 option(HUAN_ENABLE_LOG "Enable log" ON)
 option(HUAN_ENABLE_ASSERT "Enable assert" ON)
 
-add_library(${PROJECT_NAME} SHARED
-        src/HelloTriangleApplication.cpp
-        include/huan/HelloTriangleApplication.hpp
-        include/huan/settings.hpp
-        include/huan/common.hpp
-        src/settings.cpp
-        include/huan/log/Log.hpp
-        src/log/Log.cpp
-        include/huan/backend/swapchain.hpp
-        src/backend/swapchain.cpp
-        src/utils/file_load.cpp
-        include/huan/utils/file_load.hpp
-        src/backend/shader.cpp
-        include/huan/backend/shader.hpp
-        src/utils/stb_image.cpp
-        include/huan/backend/vulkan_command.hpp
-        src/backend/vulkan_command.cpp
-        include/huan/common_templates/deferred_system.hpp
-        include/huan/backend/resource/resource_system.hpp
-        src/backend/resource/resource_system.cpp
-        src/backend/vmaUsage.cpp
-        src/utils/tiny_obj_loader_usage.cpp
-        src/framework/component.cpp
-        include/huan/scene_framework/component.hpp
-        src/framework/node.cpp
-        include/huan/scene_framework/node.hpp
-        src/framework/scene.cpp
-        include/huan/scene_framework/scene.hpp
-        src/framework/components/sub_mesh.cpp
-        include/huan/scene_framework/components/sub_mesh.hpp
-        src/framework/components/material.cpp
-        include/huan/scene_framework/components/material.hpp
-        src/framework/script.cpp
-        include/huan/scene_framework/script.hpp
-        src/utils/file_system.cpp
-        include/huan/utils/file_system.hpp
-        src/backend/shader/glsl_compiler.cpp
-        include/huan/backend/shader/glsl_compiler.hpp
-        src/backend/shader/spirv_reflection.cpp
-        include/huan/backend/shader/spirv_reflection.hpp
-        src/framework/components/texture.cpp
-        include/huan/scene_framework/components/texture.hpp
-        include/huan/backend/resource/vulkan_resource.hpp
-        include/huan/backend/resource/sampler.hpp
-        src/backend/resource/sampler.cpp
-        include/huan/backend/resource/vulkan_allocated.hpp
-        include/huan/backend/resource/vulkan_builder_base.hpp
-        include/huan/backend/resource/vulkan_buffer.hpp
-        src/backend/resource/vulkan_buffer.cpp
-        src/backend/vulkan_command_pool.cpp
-        include/huan/backend/vulkan_command_pool.hpp
-        src/backend/VulkanContext.cpp
-        include/huan/VulkanContext.hpp
-        src/backend/vulkan_render_frame.cpp
-        include/huan/backend/vulkan_render_frame.hpp
-        src/backend/resource/vulkan_image.cpp
-        include/huan/backend/resource/vulkan_image.hpp
-        src/backend/resource/image_view.cpp
-        include/huan/backend/resource/image_view.hpp
-)
+file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
-if(${HUAN_DEBUG})
+add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
+
+if (${HUAN_DEBUG})
     target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_DEBUG)
     message(STATUS "Build in Debug mode")
 endif ()
 
-if(${HUAN_ENABLE_LOG})
+if (${HUAN_ENABLE_LOG})
     target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_ENABLE_LOG)
 endif ()
-if(${HUAN_ENABLE_ASSERT})
+if (${HUAN_ENABLE_ASSERT})
     target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_ENABLE_ASSERT)
 endif ()
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_BUILD_SHARED)
-message( STATUS "${PROJECT_NAME} should be built to dll.")
+message(STATUS "${PROJECT_NAME} should be built to dll.")
 target_compile_definitions(${PROJECT_NAME} PRIVATE HUAN_INNER_VISIBLE)
-message( STATUS "Some classes in ${PROJECT_NAME} should be visible inside.") 
+message(STATUS "Some classes in ${PROJECT_NAME} should be visible inside.")
 
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
@@ -100,7 +43,29 @@ target_link_libraries(${PROJECT_NAME} PRIVATE GPUOpen::VulkanMemoryAllocator)
 
 # GLSLang
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/third_party/glslang)
-target_link_libraries(${PROJECT_NAME} PRIVATE glslang)
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        glslang
+        glslang-default-resource-limits
+)
+
+# spirv_cross
+find_package(spirv_cross_core CONFIG REQUIRED)
+find_package(spirv_cross_glsl CONFIG REQUIRED)
+find_package(spirv_cross_cpp CONFIG REQUIRED)
+find_package(spirv_cross_reflect CONFIG REQUIRED)
+find_package(spirv_cross_util CONFIG REQUIRED)
+find_package(spirv_cross_hlsl CONFIG REQUIRED)
+find_package(spirv_cross_msl CONFIG REQUIRED)
+find_package(spirv_cross_c CONFIG REQUIRED)
+
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-core)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-glsl)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-hlsl)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-cpp)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-reflect)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-util)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-msl)
+target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)

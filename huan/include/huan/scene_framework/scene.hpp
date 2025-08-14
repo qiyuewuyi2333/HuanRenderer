@@ -12,7 +12,7 @@
 
 #include "huan/common.hpp"
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 class Component;
 class Node;

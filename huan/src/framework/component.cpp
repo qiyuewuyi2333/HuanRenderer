@@ -6,7 +6,7 @@
 
 #include "huan/scene_framework/component.hpp"
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 
 Component::Component(std::string&& name) : m_name(std::move(name))

@@ -5,9 +5,9 @@
 #include "huan/backend/shader/spirv_reflection.hpp"
 
 #include "huan/backend/shader.hpp"
-#include "../../../include/huan/backend/resource/resource_system.hpp"
+#include "huan/backend/resource/resource_system.hpp"
 
-namespace huan::engine
+namespace huan::runtime
 {
 template <vulkan::ShaderResourceType T>
 void readShaderResource(const spirv_cross::Compiler& compiler, vk::ShaderStageFlagBits stage,

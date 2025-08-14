@@ -58,7 +58,7 @@
     auto res = x;                                                                                                      \
     if (res != VK_SUCCESS)                                                                                             \
     {                                                                                                                  \
-        HUAN_CORE_BREAK("Vulkan Error: {0}, {1}", #x, res);                                                            \
+        HUAN_CORE_BREAK("Vulkan Error: {0}, {1}", #x, (int)res);                                                            \
     }
 #else
 #define HUAN_CLIENT_ASSERT(x, ...)

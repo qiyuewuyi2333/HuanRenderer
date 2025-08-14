@@ -5,7 +5,7 @@
 #pragma once
 #include <vector>
 
-#include <spirv_cross/spirv_glsl.hpp>
+#include "spirv_cross/spirv_glsl.hpp"
 
 namespace vk
 {

@@ -14,7 +14,7 @@ class ImageView : public VulkanResource<vk::ImageView>
     using ParentType = VulkanResource<vk::ImageView>;
 
 public:
-    ImageView(const Image& image,
+    ImageView(Image& image,
               vk::ImageViewType viewType,
               vk::Format format = vk::Format::eUndefined,
               uint32_t baseMipLevel = 0,
@@ -35,7 +35,7 @@ public:
 private:
     Image* m_image = nullptr;
     vk::Format m_format;
-    vk::ImageSubresourceRange m_subresourceRange;
+    vk::ImageSubresourceRange m_subresourceRange{};
 
 };
 

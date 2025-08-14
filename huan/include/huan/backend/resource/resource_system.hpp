@@ -8,14 +8,11 @@
 #include "huan/HelloTriangleApplication.hpp"
 #include "huan/common.hpp"
 #include "huan/common_templates/deferred_system.hpp"
-#include "huan/log/Log.hpp"
 #include "vulkan/vulkan.hpp"
 #include "huan/backend/resource/vulkan_buffer.hpp"
 #include "huan/backend/resource/vulkan_image.hpp"
 
-namespace huan::runtime::vulkan
-{
-} // namespace huan::vulkan
+#include <queue>
 
 namespace huan::runtime
 {
@@ -24,52 +21,47 @@ class ResourceSystem final : public DeferredSystem<ResourceSystem>
 {
     friend class DeferredSystem<ResourceSystem>;
 
+private:
+    std::queue<Scope<vulkan::Buffer>> m_deletingBufferQueue{};
 public:
     // TODO: 临时位置
     template <typename Func>
-    void ResourceSystem::executeImmediateTransfer(Func&& func) const;
+    void ResourceSystem::executeImmediateTransfer(Func&& func);
 #pragma region Buffer
 
 #pragma region 创建StagingBuffer
-    vulkan::Buffer createStagingBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
-                                       const void* srcData = nullptr);
+    Scope<vulkan::Buffer> createStagingBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                              const void* srcData = nullptr);
     template <class T>
     vulkan::Buffer createStagingBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
 #pragma endregion
 
 #pragma region 创建DeviceLocalBuffer
-    vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
-                                           void* srcData = nullptr);
+    Scope<vulkan::Buffer> createDeviceLocalBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                                  void* srcData = nullptr);
     template <class T>
     vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
 
 #pragma endregion
 #pragma endregion
-    void updateDataInBuffer(vulkan::Buffer& targetBuffer, void* srcData, vk::DeviceSize size,
-                            vk::DeviceSize srcOffset = 0, vk::DeviceSize dstOffset = 0);
 
-    void updateDataInImage(vulkan::Image& targetImage, void* srcData, vk::DeviceSize size, vk::DeviceSize srcOffset = 0,
-                           vk::DeviceSize dstOffset = 0);
+#pragma region Image
 
-    Scope<vulkan::Image> createImageDeviceLocal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
-                                                vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-                                                vk::MemoryPropertyFlags properties, void* data = nullptr);
-    Scope<vulkan::Image> createImageNormal(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
-                                           vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
-                                           vk::MemoryPropertyFlags properties, void* data = nullptr);
-    void createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
-                         vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
+    Scope<vulkan::Image> createImage(vk::ImageType imageType, const vk::Extent3D& extent, uint32_t mipLevels,
+                                     vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
+                                     vk::MemoryPropertyFlags properties = vk::MemoryPropertyFlagBits::eDeviceLocal,
+                                     void* data = nullptr);
+#pragma endregion 
+    // void createImageView(vulkan::Image& image, vk::ImageViewType viewType, vk::Format format,
+    //                      vk::ImageAspectFlags aspectFlags, uint32_t mipLevels);
     uint32_t findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::MemoryPropertyFlags properties);
-    void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout,
-                               vk::ImageLayout newLayout);
-    [[nodiscard]] bool hasStencilComponent(vk::Format format) const;
-    [[nodiscard]] bool isDepthStencilFormat(vk::Format format) const;
-
-    void copyBufferToBuffer(vk::Buffer srcBuffer, vk::Buffer dstBuffer, vk::DeviceSize size);
-    void copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, vk::Extent3D extent);
-
-    void destroyBuffer(vulkan::Buffer* buffer);
-    void destroyImage(vulkan::Image* image);
+    static vulkan::ImageView* createImageView(vulkan::Image& image, vk::ImageViewType imageViewType, vk::Format format,
+                                             uint32_t mipLevels);
+    static void transitionImageLayout(vk::Image image, vk::Format format, vk::ImageLayout oldLayout,
+                                      vk::ImageLayout newLayout);
+    [[nodiscard]] static bool hasStencilComponent(vk::Format format);
+    [[nodiscard]] static bool isDepthStencilFormat(vk::Format format);
+    static void copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, vk::Extent3D extent);
 
 protected:
     explicit ResourceSystem();
@@ -144,11 +136,16 @@ vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usag
 }
 
 template <typename Func>
-void ResourceSystem::executeImmediateTransfer(Func&& func) const
+void ResourceSystem::executeImmediateTransfer(Func&& func)
 {
     ScopedCommandBuffer scopedCmd(deviceHandle, HelloTriangleApplication::instance->m_transferCommandPool);
     func(scopedCmd.get());
     scopedCmd.submitAndWait(HelloTriangleApplication::instance->transferQueue);
+    while (!m_deletingBufferQueue.empty())
+    {
+    m_deletingBufferQueue.front().reset();
+        m_deletingBufferQueue.pop();
+    }
 }
 
 }

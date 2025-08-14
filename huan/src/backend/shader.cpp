@@ -54,6 +54,7 @@ std::string preprocessShader(std::string_view source)
         else
         {
             finalSource.append(lineView);
+            finalSource.append("\n");
         }
     }
     return finalSource;
@@ -174,11 +175,14 @@ void ShaderVariant::updateID()
 
 ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, const ShaderSource& glslSource,
                            const std::string& entryPoint, const ShaderVariant& variant)
-    : deviceHandle(HelloTriangleApplication::getInstance()->device),
+    : ParentType(device, nullptr),
       m_stage(stage), m_entryPoint(entryPoint)
 {
-    m_debugName = fmt::format("[Source]: {}, [Variant]: {:X}, [EntryPoint]: {}", glslSource.getFileName(),
-                              variant.getID(), entryPoint);
+#ifdef HUAN_DEBUG
+    setDebugName(fmt::format("[Source]: {}, [Variant]: {:X}, [EntryPoint]: {}", glslSource.getFileName(),
+                             variant.getID(), entryPoint));
+#endif
+
     if (entryPoint.empty())
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
@@ -190,6 +194,7 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
     }
 
     const auto glslFinalSource = preprocessShader(source);
+    HUAN_CORE_TRACE("glsl {} FinalSource:\n{}",glslSource.getFileName(), glslFinalSource)
     GLSLCompiler compiler;
     if (!compiler.compileToSPIRV(stage, glslFinalSource, entryPoint, variant, m_binary, m_infoLog))
     {
@@ -201,21 +206,37 @@ ShaderModule::ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, co
     {
         HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
     }
-    std::hash<std::string> hash{};
+    constexpr std::hash<std::string> hash{};
     m_id = hash(std::string(m_binary.begin(), m_binary.end()));
+
+    vk::ShaderModuleCreateInfo createInfo{};
+    createInfo.setCodeSize(m_binary.size() * sizeof(uint32_t))
+              .setCode(m_binary);
+    setHandle(device.createShaderModule(createInfo));
+    if (!getHandle())
+    {
+        HUAN_CORE_BREAK("Renderer: Shader Init Failed!")
+    }
 }
 
 ShaderModule::ShaderModule(ShaderModule&& that) noexcept
-    : deviceHandle(that.deviceHandle),
+    : ParentType(std::move(that)),
       m_id(that.m_id),
       m_stage(that.m_stage),
-      m_entryPoint(that.m_entryPoint),
-      m_debugName(that.m_debugName),
+      m_entryPoint(std::move(that.m_entryPoint)),
       m_infoLog(std::move(that.m_infoLog)),
       m_resources(std::move(that.m_resources)),
       m_binary(std::move(that.m_binary))
 {
     that.m_stage = {};
+}
+
+ShaderModule::~ShaderModule()
+{
+    if (getHandle())
+    {
+        getDeviceHandle().destroyShaderModule(getHandle());
+    }
 }
 
 size_t ShaderModule::getID() const
@@ -246,11 +267,6 @@ const std::string& ShaderModule::getInfoLog() const
 const std::vector<uint32_t>& ShaderModule::getBinary() const
 {
     return m_binary;
-}
-
-const std::string& ShaderModule::getDebugName() const
-{
-    return m_debugName;
 }
 
 void ShaderModule::setResourceMode(const std::string& resourceName, const ShaderResourceMode& resourceMode)

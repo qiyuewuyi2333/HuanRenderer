@@ -24,7 +24,6 @@ public:
     explicit ImageBuilder(VmaAllocator allocator, const vk::Extent3D& extent);
     ImageBuilder(VmaAllocator allocator, uint32_t width, uint32_t height, uint32_t depth = 1);
 
-    // 流式接口 - 返回引用以支持链式调用
     ImageBuilder& setFormat(vk::Format format);
     ImageBuilder& setUsage(vk::ImageUsageFlags usage);
     ImageBuilder& setFlags(vk::ImageCreateFlags flags);
@@ -79,7 +78,7 @@ public:
           vk::SampleCountFlagBits sampleCount = vk::SampleCountFlagBits::e1);
 
     // 使用非const引用 防止传入右值
-    Image(vk::Device& device, const ImageBuilder& builder);
+    explicit Image(vk::Device& device, const ImageBuilder& builder);
 
     HUAN_NO_COPY(Image)
     Image(Image&& other) noexcept;
@@ -97,8 +96,8 @@ public:
     uint32_t getArrayLayerCount() const;
     std::unordered_set<ImageView*>& getViews();
 
+    uint8_t* map() override;
 
-    uint8_t* map(); 
 private:
     vk::ImageCreateInfo m_createInfo{};
     vk::ImageSubresource m_subresource{};

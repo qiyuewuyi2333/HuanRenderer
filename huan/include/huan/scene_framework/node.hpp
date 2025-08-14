@@ -9,7 +9,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 class Component;
 

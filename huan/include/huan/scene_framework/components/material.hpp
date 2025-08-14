@@ -8,11 +8,11 @@
 
 #include <unordered_map>
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 class Texture;
 }
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 /**
  * @brief How the alpha value of the main factor and texture should be interpreted

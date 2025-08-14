@@ -11,7 +11,7 @@
 #include "huan/scene_framework/component.hpp"
 #include "huan/scene_framework/node.hpp"
 
-namespace huan::framework
+namespace huan::framework::scene_graph
 {
 
 Scene::Scene(const std::string& name)

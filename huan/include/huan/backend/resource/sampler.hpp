@@ -5,7 +5,7 @@
 
 #include "vulkan_resource.hpp"
 
-namespace huan::vulkan
+namespace huan::runtime::vulkan
 {
 class Sampler final : public VulkanResource<vk::Sampler>
 {

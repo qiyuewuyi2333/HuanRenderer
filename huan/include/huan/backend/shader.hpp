@@ -5,6 +5,8 @@
 #ifndef SHADER_HPP
 #define SHADER_HPP
 
+#include "resource/vulkan_resource.hpp"
+
 #include <vector>
 #include <string>
 #include <unordered_map>
@@ -123,8 +125,9 @@ class ShaderVariant final
     std::unordered_map<std::string, size_t> m_runtimeArraySizes;
 };
 
-class ShaderModule
+class ShaderModule : public VulkanResource<vk::ShaderModule>
 {
+    using ParentType = VulkanResource<vk::ShaderModule>;
   public:
     ShaderModule(vk::Device& device, vk::ShaderStageFlagBits stage, const ShaderSource& glslSource,
                  const std::string& entryPoint, const ShaderVariant& variant);
@@ -132,6 +135,7 @@ class ShaderModule
     ShaderModule(ShaderModule&& that) noexcept;
     ShaderModule& operator=(const ShaderModule&) = delete;
     ShaderModule& operator=(ShaderModule&& that) = delete;
+    ~ShaderModule() override;
 
     [[nodiscard]] size_t getID() const;
     [[nodiscard]] vk::ShaderStageFlagBits getStage() const;
@@ -139,16 +143,13 @@ class ShaderModule
     [[nodiscard]] const std::vector<ShaderResource>& getResources() const;
     [[nodiscard]] const std::string& getInfoLog() const;
     [[nodiscard]] const std::vector<uint32_t>& getBinary() const;
-    [[nodiscard]] const std::string& getDebugName() const;
 
     void setResourceMode(const std::string& resourceName, const ShaderResourceMode& resourceMode);
 
   private:
-    vk::Device& deviceHandle;
     uint32_t m_id{};
     vk::ShaderStageFlagBits m_stage{};
     std::string m_entryPoint{};
-    std::string m_debugName{};
     std::string m_infoLog{};
     std::vector<ShaderResource> m_resources{};
     std::vector<uint32_t> m_binary{}; // spir-v code
