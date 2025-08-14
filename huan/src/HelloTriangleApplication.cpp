@@ -11,12 +11,12 @@
 
 #include "huan/settings.hpp"
 #include "huan/backend/shader.hpp"
-#include "huan/backend/vulkan_buffer.hpp"
+#include "huan/backend/resource/vulkan_buffer.hpp"
 #include "huan/log/Log.hpp"
 #include "huan/utils/file_load.hpp"
 #include "glm/gtc/matrix_transform.hpp"
-#include "huan/backend/vulkan_image.hpp"
-#include "huan/backend/vulkan_resources.hpp"
+#include "../include/huan/backend/resource/resource_system.hpp"
+#include "huan/backend/resource/vulkan_image_view.hpp"
 #include "huan/utils/stb_image.h"
 #include "huan/utils/tiny_obj_loader.h"
 
@@ -171,11 +171,11 @@ void HelloTriangleApplication::createFrameData()
  */
 void HelloTriangleApplication::createVertexBufferAndMemory()
 {
-    vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
+    const vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
-    m_vertexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_vertices.data()));
+    m_vertexBuffer = runtime::ResourceSystem::getInstance()->createDeviceLocalBuffer(
+        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        bufferSize, (void*)(m_vertices.data()));
     HUAN_CORE_INFO("VertexBuffer created.")
 }
 
@@ -183,9 +183,9 @@ void HelloTriangleApplication::createIndexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(uint32_t) * m_indices.size();
 
-    m_indexBuffer = ResourceSystem::getInstance()->createBufferByStagingBuffer(
-        bufferSize, vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, (void*)(m_indices.data()));
+    m_indexBuffer = runtime::ResourceSystem::getInstance()->createDeviceLocalBuffer(
+        vk::BufferUsageFlagBits::eIndexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        bufferSize, (void*)(m_indices.data()));
     HUAN_CORE_INFO("IndexBuffer created.")
 }
 
@@ -195,12 +195,13 @@ void HelloTriangleApplication::createIndexBufferAndMemory()
  */
 void HelloTriangleApplication::createUniformBuffers()
 {
-    vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
+    const vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
     for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
     {
-        m_frameDatas[i].m_uniformBuffer = ResourceSystem::getInstance()->createBufferNormal(
-            bufferSize, vk::BufferUsageFlagBits::eUniformBuffer, nullptr);
+        m_frameDatas[i].m_uniformBuffer = runtime::ResourceSystem::getInstance()->createStagingBuffer(
+            vk::BufferUsageFlagBits::eUniformBuffer,
+            bufferSize, nullptr);
     }
 
     HUAN_CORE_INFO("UniformBuffers created. ")
@@ -246,7 +247,7 @@ void HelloTriangleApplication::createInstance()
     infoString.str("");
 
     // Prepare the required extensions and layers
-    std::vector<const char*> requiredInstanceExtensions = getRequiredInstanceExtensions();
+    const std::vector<const char*> requiredInstanceExtensions = getRequiredInstanceExtensions();
     std::vector<const char*> requiredLayers;
     infoString << "\nRequired Instance Extensions: \n";
     for (const auto& requiredExtension : requiredInstanceExtensions)
@@ -481,14 +482,14 @@ void HelloTriangleApplication::createDescriptorSets()
     // NOTE: 所有的渲染帧使用相同的Image 资源
     vk::DescriptorImageInfo imageInfo;
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-             .setImageView(m_textureImage->m_imageView)
+             .setImageView((*m_textureImage->getViews().begin())->getHandle())
              .setSampler(m_textureSampler);
 
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
     {
         m_frameDatas[i].m_descriptorSet = sets[i];
         vk::DescriptorBufferInfo bufferInfo; // 定义 描述符绑定的 资源信息 buffer or image
-        bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->m_buffer)
+        bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->getHandle())
                   .setOffset(0)
                   .setRange(sizeof(UniformBufferObject));
 
@@ -517,16 +518,20 @@ void HelloTriangleApplication::createGraphicsPipeline()
 {
     HUAN_CORE_INFO("Creating graphics pipeline...")
     // Shaders
-    auto vertexShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.vert.spv");
-    auto fragShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.frag.spv");
+    // auto vertexShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.vert.spv");
+    // auto fragShader = utils::loadFile("../../../../assets/Shaders/ModelsLoad/shader.frag.spv");
 
-    auto vertexShaderModule = Shader::createShaderModule(vertexShader);
-    auto fragShaderModule = Shader::createShaderModule(fragShader);
+    auto vsSrc = runtime::vulkan::ShaderSource("../../../../assets/Shaders/ModelsLoad/shader.vert");
+    auto vsModule = runtime::vulkan::ShaderModule{device, vk::ShaderStageFlagBits::eVertex, vsSrc, "main", {}};
+    auto fsSrc = runtime::vulkan::ShaderSource("../../../../assets/Shaders/ModelsLoad/shader.frag");
+    auto fsModule = runtime::vulkan::ShaderModule{device, vk::ShaderStageFlagBits::eFragment, fsSrc, "main", {}};
 
     vk::PipelineShaderStageCreateInfo vertexShaderStageInfo;
-    vertexShaderStageInfo.setStage(vk::ShaderStageFlagBits::eVertex).setModule(vertexShaderModule).setPName("main");
+    vertexShaderStageInfo.setStage(vk::ShaderStageFlagBits::eVertex).setModule(vsModule.getHandle()).setPName(
+        vsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
-    fragShaderStageInfo.setStage(vk::ShaderStageFlagBits::eFragment).setModule(fragShaderModule).setPName("main");
+    fragShaderStageInfo.setStage(vk::ShaderStageFlagBits::eFragment).setModule(fsModule.getHandle()).setPName(
+        fsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageInfo, fragShaderStageInfo};
 
     // Dynamic states
@@ -648,8 +653,8 @@ void HelloTriangleApplication::createGraphicsPipeline()
     m_graphicsPipeline = pipelineRes.value;
     HUAN_CORE_INFO("Graphics pipeline created!")
 
-    device.destroyShaderModule(vertexShaderModule);
-    device.destroyShaderModule(fragShaderModule);
+    // device.destroyShaderModule(vertexShaderModule);
+    // device.destroyShaderModule(fragShaderModule);
 }
 
 /**
@@ -762,7 +767,7 @@ void HelloTriangleApplication::createFramebuffers()
                    .setLayers(1); // The number of layers of the imageView.
     for (size_t i = 0; i < swapchain->m_imageViews.size(); i++)
     {
-        std::array attachments = {swapchain->m_imageViews[i], m_depthImage->m_imageView};
+        std::array attachments = {swapchain->m_imageViews[i], (*m_depthImage->getViews().begin())->getHandle()};
         framebufferInfo.setAttachments(attachments);
 
         m_swapchainFramebuffers[i] = device.createFramebuffer(framebufferInfo);
@@ -806,34 +811,35 @@ void HelloTriangleApplication::createDepthResources()
 {
     vk::Format depthFormat = findDepthFormat();
     // TODO: deviceLocal但是直接Dynamic 可能会导致错误 待修复
-    m_depthImage = ResourceSystem::getInstance()->createImageDeviceLocal(
+    m_depthImage = runtime::ResourceSystem::getInstance()->createImage(
         vk::ImageType::e2D, vk::Extent3D(swapchain->m_info.extent.width, swapchain->m_info.extent.height, 1), 1,
         depthFormat, vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eDepthStencilAttachment,
         vk::MemoryPropertyFlagBits::eDeviceLocal);
-    ResourceSystem::getInstance()->createImageView(*m_depthImage, vk::ImageViewType::e2D,
-                                                   depthFormat, vk::ImageAspectFlagBits::eDepth, 1);
-    ResourceSystem::getInstance()->transitionImageLayout(
-        m_depthImage->m_image, depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
+    auto view = runtime::ResourceSystem::createImageView(*m_depthImage, vk::ImageViewType::e2D, depthFormat,
+                                                         0);
+    runtime::ResourceSystem::transitionImageLayout(
+        m_depthImage->getHandle(), depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
 }
 
 void HelloTriangleApplication::createTextureImage()
 {
     int texWidth, texHeight, texChannels;
-    stbi_uc* pixels =
-        stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
+    stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
 
     vk::DeviceSize imageSize = texWidth * texHeight * 4;
     if (!pixels)
         HUAN_CORE_BREAK("Failed to load texture image! ")
 
-    m_textureImage = ResourceSystem::getInstance()->createImageDeviceLocal(
+    m_textureImage = runtime::ResourceSystem::getInstance()->createImage(
         vk::ImageType::e2D, vk::Extent3D(texWidth, texHeight, 1), 1, vk::Format::eR8G8B8A8Srgb,
         vk::ImageTiling::eOptimal, vk::ImageUsageFlagBits::eTransferDst | vk::ImageUsageFlagBits::eSampled,
-        vk::MemoryPropertyFlagBits::eDeviceLocal, pixels);
+        vk::MemoryPropertyFlagBits::eDeviceLocal,
+        pixels);
 
     stbi_image_free(pixels);
-    ResourceSystem::getInstance()->createImageView(
-        *m_textureImage, vk::ImageViewType::e2D, vk::Format::eR8G8B8A8Srgb, vk::ImageAspectFlagBits::eColor, 1);
+    runtime::ResourceSystem::createImageView(*m_textureImage, vk::ImageViewType::e2D,
+                                             vk::Format::eR8G8B8A8Srgb,
+                                             0);
 }
 
 void HelloTriangleApplication::createTextureSampler()
@@ -875,16 +881,11 @@ void HelloTriangleApplication::loadModel()
         {
             Vertex vertex{};
 
-            vertex.m_pos = {
-                attrib.vertices[3 * index.vertex_index + 0],
-                attrib.vertices[3 * index.vertex_index + 1],
-                attrib.vertices[3 * index.vertex_index + 2]
-            };
+            vertex.m_pos = {attrib.vertices[3 * index.vertex_index + 0], attrib.vertices[3 * index.vertex_index + 1],
+                            attrib.vertices[3 * index.vertex_index + 2]};
 
-            vertex.m_texCoord = {
-                attrib.texcoords[2 * index.texcoord_index + 0],
-                1.0f - attrib.texcoords[2 * index.texcoord_index + 1]
-            };
+            vertex.m_texCoord = {attrib.texcoords[2 * index.texcoord_index + 0],
+                                 1.0f - attrib.texcoords[2 * index.texcoord_index + 1]};
             vertex.m_color = {1.0f, 1.0f, 1.0f};
             // if (!uniqueVertices.contains(index.vertex_index))
             // {
@@ -897,7 +898,6 @@ void HelloTriangleApplication::loadModel()
         }
     }
     HUAN_CORE_TRACE("Model vertex num: {}", m_vertices.size())
-
 }
 
 void HelloTriangleApplication::drawFrame()
@@ -1061,7 +1061,7 @@ void HelloTriangleApplication::updateUniformBuffer()
     ubo.m_proj[1][1] *= -1;
     ubo.m_view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
 
-    ResourceSystem::getInstance()->updateDataInBuffer(*curUniformBuffer, &ubo, sizeof(ubo));
+    curUniformBuffer->updateDirectly(static_cast<void*>(&ubo), sizeof(ubo), 0);
 }
 
 void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
@@ -1087,10 +1087,10 @@ void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuff
     vk::Rect2D scissor{{0, 0}, swapchain->m_info.extent};
     commandBuffer.setScissor(0, 1, &scissor);
 
-    vk::Buffer vertexBuffers[] = {m_vertexBuffer->m_buffer};
+    vk::Buffer vertexBuffers[] = {m_vertexBuffer->getHandle()};
     vk::DeviceSize offsets[] = {0};
     commandBuffer.bindVertexBuffers(0, 1, vertexBuffers, offsets);
-    commandBuffer.bindIndexBuffer(m_indexBuffer->m_buffer, 0, vk::IndexType::eUint32);
+    commandBuffer.bindIndexBuffer(m_indexBuffer->getHandle(), 0, vk::IndexType::eUint32);
     commandBuffer.bindDescriptorSets(vk::PipelineBindPoint::eGraphics, m_pipelineLayout, 0, 1,
                                      &m_frameDatas[m_currentFrame].m_descriptorSet, 0, nullptr);
 
@@ -1121,8 +1121,11 @@ void HelloTriangleApplication::recreateSwapchain()
         device.destroyFramebuffer(swapchainFramebuffer);
     }
     swapchain.reset();
-    device.destroyImageView(m_depthImage->m_imageView);
-    ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
+    for (auto& view : m_depthImage->getViews())
+    {
+        delete view;
+    };
+    m_depthImage.reset();
 
     // Create
     createSwapchain();
@@ -1141,14 +1144,18 @@ void HelloTriangleApplication::cleanup()
         device.destroyFence(frameData.m_fence);
         device.destroySemaphore(frameData.m_renderFinishedSemaphore);
         device.destroySemaphore(frameData.m_imageAvailableSemaphore);
-        ResourceSystem::getInstance()->destroyBuffer(frameData.m_uniformBuffer.get());
+        frameData.m_uniformBuffer.reset();
     }
     HUAN_CORE_INFO("FrameDatas destroyed.")
 
     device.destroyCommandPool(m_commandPool);
     device.destroyCommandPool(m_transferCommandPool);
     HUAN_CORE_INFO("CommandPool destroyed.")
-    ResourceSystem::getInstance()->destroyImage(m_depthImage.get());
+    for (auto& view : m_depthImage->getViews())
+    {
+        delete view;
+    };
+    m_depthImage.reset();
     HUAN_CORE_INFO("Depth image and view destroyed.")
     for (auto& framebuffer : m_swapchainFramebuffers)
     {
@@ -1171,11 +1178,15 @@ void HelloTriangleApplication::cleanup()
     HUAN_CORE_INFO("Surface destroyed.")
     device.destroySampler(m_textureSampler);
     HUAN_CORE_INFO("Sampler destroyed.")
-    ResourceSystem::getInstance()->destroyImage(m_textureImage.get());
+    for (auto& view : m_textureImage->getViews())
+    {
+        delete view;
+    };
+    m_textureImage.reset();
     HUAN_CORE_INFO("m_textureImage and view freed! ")
-    ResourceSystem::getInstance()->destroyBuffer(m_vertexBuffer.get());
+    m_vertexBuffer.reset();
     HUAN_CORE_INFO("VertexBuffer and VertexBuffer's memory freed! ")
-    ResourceSystem::getInstance()->destroyBuffer(m_indexBuffer.get());
+    m_indexBuffer.reset();
     HUAN_CORE_INFO("IndexBuffer and IndexBuffer's memory freed! ")
     vmaDestroyAllocator(allocator);
     HUAN_CORE_INFO("Allocator destroyed.")

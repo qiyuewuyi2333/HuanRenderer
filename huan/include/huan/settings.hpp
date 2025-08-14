@@ -11,8 +11,8 @@ namespace huan
     struct AppSettings
     {
         const char* title = "Default title";
-        uint32_t width = 800;
-        uint32_t height = 600;
+        int width = 800;
+        int height = 600;
         bool isVulkanValidationEnabled = true;
         int maxFramesInFlight = 2;
     };

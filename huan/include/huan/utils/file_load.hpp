@@ -13,7 +13,6 @@ namespace huan
 {
     namespace utils
     {
-        HUAN_API extern std::vector<uint32_t> loadFile(const std::string& file_path);
     }
 }
 

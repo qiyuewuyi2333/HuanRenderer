@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.20)
 project(HuanRenderer)
 
 if(DEFINED CMAKE_TOOLCHAIN_FILE)
@@ -12,7 +12,9 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
+add_subdirectory(third_party/VulkanMemoryAllocator)
+add_subdirectory(third_party/glslang)
+
 add_subdirectory(sandbox)
 add_subdirectory(huan)
-add_subdirectory(third_party/VulkanMemoryAllocator)
 

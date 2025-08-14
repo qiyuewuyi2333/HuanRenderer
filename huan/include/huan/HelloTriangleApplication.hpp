@@ -2,8 +2,8 @@
 // Created by 86156 on 4/4/2025.
 //
 
-#ifndef HELLOTRIANGLEAPPLICATION_HPP
-#define HELLOTRIANGLEAPPLICATION_HPP
+#pragma once
+
 #include <vulkan/vulkan.hpp>
 #include <optional>
 #include <vector>
@@ -21,10 +21,10 @@ struct GLFWwindow;
 
 namespace huan
 {
-namespace vulkan
+namespace runtime::vulkan
 {
 class Image;
-struct Buffer;
+class Buffer;
 } // namespace vulkan
 
 struct Vertex
@@ -70,7 +70,7 @@ struct VulkanFrameData
     vk::Semaphore m_imageAvailableSemaphore;
     vk::Semaphore m_renderFinishedSemaphore;
 
-    Scope<vulkan::Buffer> m_uniformBuffer;
+    Scope<runtime::vulkan::Buffer> m_uniformBuffer;
     vk::DescriptorSet m_descriptorSet;
 };
 
@@ -113,8 +113,8 @@ private:
     void initWindow();
 
     void initVulkan();
-    std::vector<const char*> getRequiredInstanceExtensions();
-    std::vector<const char*> getRequiredDeviceExtensions();
+    [[nodiscard]] static std::vector<const char*> getRequiredInstanceExtensions();
+    [[nodiscard]] static std::vector<const char*> getRequiredDeviceExtensions();
     void createInstance();
     void createDebugMessenger();
     void pickPhysicalDevice();
@@ -166,8 +166,7 @@ public:
         }
     };
 
-    // clang-format off
-  INNER_VISIBLE:
+INNER_VISIBLE:
     inline static HelloTriangleApplication* instance = nullptr;
     GLFWwindow* window = nullptr;
     vk::Instance vkInstance;
@@ -199,15 +198,15 @@ public:
     std::vector<VulkanFrameData> m_frameDatas;
     uint32_t m_currentFrame = 0;
 
-    Scope<vulkan::Buffer> m_vertexBuffer;
-    Scope<vulkan::Buffer> m_indexBuffer;
+    Scope<runtime::vulkan::Buffer> m_vertexBuffer;
+    Scope<runtime::vulkan::Buffer> m_indexBuffer;
 
-    Scope<vulkan::Image> m_textureImage;
+    Scope<runtime::vulkan::Image> m_textureImage;
     vk::Sampler m_textureSampler;
 
-    Scope<vulkan::Image> m_depthImage;
-    
-    
+    Scope<runtime::vulkan::Image> m_depthImage;
+
+
     bool initialized = false;
     bool m_framebufferResized = false;
 
@@ -217,5 +216,3 @@ public:
     std::vector<uint32_t> m_indices = {};
 };
 } // namespace huan
-
-#endif // HELLOTRIANGLEAPPLICATION_HPP
