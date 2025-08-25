@@ -174,7 +174,7 @@ void VulkanContext::createVertexBufferAndMemory()
     const vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
     m_vertexBuffer = runtime::ResourceSystem::getInstance()->createDeviceLocalBuffer(
-        vk::BufferUsageFlagBits::eVertexBuffer | vk::BufferUsageFlagBits::eTransferDst,
+        vk::BufferUsageFlagBits::eVertexBuffer,
         bufferSize, (void*)(m_vertices.data()));
     HUAN_CORE_INFO("VertexBuffer created.")
 }
@@ -777,7 +777,7 @@ void VulkanContext::createFramebuffers()
 }
 
 vk::Format VulkanContext::findSupportedFormat(const std::vector<vk::Format>& candidates,
-                                                         vk::ImageTiling tiling, vk::FormatFeatureFlags features)
+                                              vk::ImageTiling tiling, vk::FormatFeatureFlags features)
 {
     for (auto format : candidates)
     {

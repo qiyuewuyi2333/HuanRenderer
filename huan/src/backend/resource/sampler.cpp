@@ -17,10 +17,6 @@ Sampler::Sampler(vk::Device& deviceHandle, const vk::SamplerCreateInfo& info)
         HUAN_CORE_ERROR("Renderer: Failed to create sampler. ")
 }
 
-Sampler::Sampler(Sampler&& that) noexcept : VulkanResource(std::move(that))
-{
-}
-
 Sampler::~Sampler()
 {
     getDeviceHandle().destroySampler(getHandle());

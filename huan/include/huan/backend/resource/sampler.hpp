@@ -12,7 +12,7 @@ class Sampler final : public VulkanResource<vk::Sampler>
   public:
     Sampler(vk::Device& deviceHandle, const vk::SamplerCreateInfo& info);
     HUAN_NO_COPY(Sampler)
-    Sampler(Sampler&& that) noexcept;
+    Sampler(Sampler&& that) noexcept = default;
     Sampler& operator=(Sampler&& that) = delete;
     ~Sampler() override;
 };

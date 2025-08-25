@@ -12,6 +12,7 @@ namespace huan::framework::scene_graph
 {
 class Texture;
 }
+
 namespace huan::framework::scene_graph
 {
 /**
@@ -23,17 +24,18 @@ enum class AlphaMode
     Mask = 1,
     Blend = 2
 };
+
 class Material : public Component
 {
 public:
     explicit Material(const std::string& name);
-    Material(Material&& that) = default;
+    Material(Material&& that) noexcept = default;
     ~Material() override = default;
     [[nodiscard]] std::type_index getType() const override;
 
     std::unordered_map<std::string, Texture*> m_textures;
-    
-    
+
+
 };
 }
 #endif //MATERIAL_HPP
