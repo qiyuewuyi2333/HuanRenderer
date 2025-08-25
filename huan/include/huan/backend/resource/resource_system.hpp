@@ -5,7 +5,7 @@
 #pragma once
 
 #include "vk_mem_alloc.h"
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/common.hpp"
 #include "huan/common_templates/deferred_system.hpp"
 #include "vulkan/vulkan.hpp"
@@ -26,7 +26,7 @@ private:
 public:
     // TODO: 临时位置
     template <typename Func>
-    void ResourceSystem::executeImmediateTransfer(Func&& func);
+    void executeImmediateTransfer(Func&& func);
 #pragma region Buffer
 
 #pragma region 创建StagingBuffer
@@ -138,9 +138,9 @@ vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usag
 template <typename Func>
 void ResourceSystem::executeImmediateTransfer(Func&& func)
 {
-    ScopedCommandBuffer scopedCmd(deviceHandle, HelloTriangleApplication::instance->m_transferCommandPool);
+    ScopedCommandBuffer scopedCmd(deviceHandle, VulkanContext::instance->m_transferCommandPool);
     func(scopedCmd.get());
-    scopedCmd.submitAndWait(HelloTriangleApplication::instance->transferQueue);
+    scopedCmd.submitAndWait(VulkanContext::instance->transferQueue);
     while (!m_deletingBufferQueue.empty())
     {
     m_deletingBufferQueue.front().reset();

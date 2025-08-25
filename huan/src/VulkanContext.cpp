@@ -2,7 +2,7 @@
 // Created by 86156 on 4/4/2025.
 //
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include <set>
 #include <chrono>
 #include <GLFW/glfw3.h>
@@ -67,18 +67,18 @@ void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerE
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
-    auto app = huan::HelloTriangleApplication::getInstance();
+    auto app = huan::VulkanContext::getInstance();
     app->m_framebufferResized = true;
 }
 
 namespace huan
 {
-void HelloTriangleApplication::initLogSystem()
+void VulkanContext::initLogSystem()
 {
     Log::init();
 }
 
-void HelloTriangleApplication::init()
+void VulkanContext::init()
 {
     if (isInitialized())
         return;
@@ -90,17 +90,17 @@ void HelloTriangleApplication::init()
     initialized = true;
 }
 
-void HelloTriangleApplication::run()
+void VulkanContext::run()
 {
     mainLoop();
 }
 
-HelloTriangleApplication::HelloTriangleApplication()
+VulkanContext::VulkanContext()
 {
     // nothing
 }
 
-void HelloTriangleApplication::initWindow()
+void VulkanContext::initWindow()
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -111,7 +111,7 @@ void HelloTriangleApplication::initWindow()
     glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 }
 
-void HelloTriangleApplication::createCommandPool()
+void VulkanContext::createCommandPool()
 {
     vk::CommandPoolCreateInfo commandPoolCreateInfo;
     commandPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
@@ -127,7 +127,7 @@ void HelloTriangleApplication::createCommandPool()
     HUAN_CORE_INFO("Created command pool");
 }
 
-void HelloTriangleApplication::createCommandBuffer()
+void VulkanContext::createCommandBuffer()
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
     commandBufferAllocateInfo.setCommandPool(m_commandPool)
@@ -141,7 +141,7 @@ void HelloTriangleApplication::createCommandBuffer()
     HUAN_CORE_INFO("Created command buffer");
 }
 
-void HelloTriangleApplication::createSynchronization()
+void VulkanContext::createSynchronization()
 {
     vk::SemaphoreCreateInfo semaphoreCreateInfo;
     vk::FenceCreateInfo fenceCreateInfo;
@@ -157,7 +157,7 @@ void HelloTriangleApplication::createSynchronization()
     HUAN_CORE_INFO("Created synchronization");
 }
 
-void HelloTriangleApplication::createFrameData()
+void VulkanContext::createFrameData()
 {
     m_frameDatas.resize(globalAppSettings.maxFramesInFlight);
     createCommandBuffer();
@@ -169,7 +169,7 @@ void HelloTriangleApplication::createFrameData()
 /**
  * NOTE: 我们使用StagingBuffer作为传输到VertexBuffer的中介缓冲，从而使 后者 不需要被主机可见，从而使用更加高效的内存区域
  */
-void HelloTriangleApplication::createVertexBufferAndMemory()
+void VulkanContext::createVertexBufferAndMemory()
 {
     const vk::DeviceSize bufferSize = sizeof(Vertex) * m_vertices.size();
 
@@ -179,7 +179,7 @@ void HelloTriangleApplication::createVertexBufferAndMemory()
     HUAN_CORE_INFO("VertexBuffer created.")
 }
 
-void HelloTriangleApplication::createIndexBufferAndMemory()
+void VulkanContext::createIndexBufferAndMemory()
 {
     vk::DeviceSize bufferSize = sizeof(uint32_t) * m_indices.size();
 
@@ -193,7 +193,7 @@ void HelloTriangleApplication::createIndexBufferAndMemory()
  * Create uniform buffer for per frames.
  * Because vulkan can render in parallel, so we need to do that.
  */
-void HelloTriangleApplication::createUniformBuffers()
+void VulkanContext::createUniformBuffers()
 {
     const vk::DeviceSize bufferSize = sizeof(UniformBufferObject);
 
@@ -207,7 +207,7 @@ void HelloTriangleApplication::createUniformBuffers()
     HUAN_CORE_INFO("UniformBuffers created. ")
 }
 
-std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions()
+std::vector<const char*> VulkanContext::getRequiredInstanceExtensions()
 {
     uint32_t glfwExtensionCount = 0;
     const char** glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
@@ -219,12 +219,12 @@ std::vector<const char*> HelloTriangleApplication::getRequiredInstanceExtensions
     return std::move(extensions);
 }
 
-std::vector<const char*> HelloTriangleApplication::getRequiredDeviceExtensions()
+std::vector<const char*> VulkanContext::getRequiredDeviceExtensions()
 {
     return {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
 }
 
-void HelloTriangleApplication::createInstance()
+void VulkanContext::createInstance()
 {
     vk::InstanceCreateInfo vkInstanceCreateInfo;
     vk::ApplicationInfo appInfo;
@@ -329,14 +329,14 @@ void HelloTriangleApplication::createInstance()
     }
 }
 
-void HelloTriangleApplication::createDebugMessenger()
+void VulkanContext::createDebugMessenger()
 {
     if (!globalAppSettings.isVulkanValidationEnabled)
         return;
     debugMessenger = vkInstance.createDebugUtilsMessengerEXT(debugCreateInfo);
 }
 
-void HelloTriangleApplication::pickPhysicalDevice()
+void VulkanContext::pickPhysicalDevice()
 {
     const auto devices = vkInstance.enumeratePhysicalDevices();
     for (const auto& device : devices)
@@ -385,7 +385,7 @@ void HelloTriangleApplication::pickPhysicalDevice()
     HUAN_CORE_INFO("All required device extensions are available! ")
 }
 
-void HelloTriangleApplication::createDevice()
+void VulkanContext::createDevice()
 {
     auto requiredDeviceExtensions = getRequiredDeviceExtensions();
     vk::DeviceCreateInfo deviceCreateInfo;
@@ -412,7 +412,7 @@ void HelloTriangleApplication::createDevice()
     device = physicalDevice.createDevice(deviceCreateInfo);
 }
 
-void HelloTriangleApplication::createAllocator()
+void VulkanContext::createAllocator()
 {
     VmaAllocatorCreateInfo allocatorInfo = {};
     allocatorInfo.instance = vkInstance;
@@ -426,14 +426,14 @@ void HelloTriangleApplication::createAllocator()
     HUAN_CORE_INFO("Vulkan Memory Allocator created! ")
 }
 
-void HelloTriangleApplication::getQueues()
+void VulkanContext::getQueues()
 {
     device.getQueue(queueFamilyIndices.graphicsFamily.value(), 0, &graphicsQueue);
     device.getQueue(queueFamilyIndices.presentFamily.value(), 0, &presentQueue);
     device.getQueue(queueFamilyIndices.transferFamily.value(), 0, &transferQueue);
 }
 
-void HelloTriangleApplication::createSurface()
+void VulkanContext::createSurface()
 {
     VkSurfaceKHR tempSurface;
     const auto res = glfwCreateWindowSurface(vkInstance, window, nullptr, &tempSurface);
@@ -443,12 +443,12 @@ void HelloTriangleApplication::createSurface()
     surface = vk::SurfaceKHR(tempSurface);
 }
 
-void HelloTriangleApplication::createSwapchain()
+void VulkanContext::createSwapchain()
 {
     swapchain = Swapchain::create(globalAppSettings.width, globalAppSettings.height);
 }
 
-void HelloTriangleApplication::createDescriptorPool()
+void VulkanContext::createDescriptorPool()
 {
     vk::DescriptorPoolCreateInfo poolCreateInfo;
     // NOTE: 池大小表示描述符数量的预期值，可以理解为Capacity
@@ -469,7 +469,7 @@ void HelloTriangleApplication::createDescriptorPool()
 /**
  * 创建我们所需要的描述符
  */
-void HelloTriangleApplication::createDescriptorSets()
+void VulkanContext::createDescriptorSets()
 {
     std::vector<vk::DescriptorSetLayout> layouts(globalAppSettings.maxFramesInFlight, m_descriptorSetLayout);
 
@@ -514,7 +514,7 @@ void HelloTriangleApplication::createDescriptorSets()
     HUAN_CORE_INFO("DescriptorSet in frameData created and configured! ")
 }
 
-void HelloTriangleApplication::createGraphicsPipeline()
+void VulkanContext::createGraphicsPipeline()
 {
     HUAN_CORE_INFO("Creating graphics pipeline...")
     // Shaders
@@ -661,7 +661,7 @@ void HelloTriangleApplication::createGraphicsPipeline()
  * Descriptor is a way to let shader access resources in buffers freely.
  * And the DescriptorSetLayout is a descriptor set's layout.
  */
-void HelloTriangleApplication::createDescriptorSetLayout()
+void VulkanContext::createDescriptorSetLayout()
 {
     vk::DescriptorSetLayoutBinding uboLayoutBinding;
     uboLayoutBinding.setBinding(0)
@@ -690,7 +690,7 @@ void HelloTriangleApplication::createDescriptorSetLayout()
  * Create RenderPass, telling the render pipeline how many color and depth buffers to use, how many samples to use for
  * them and how their contents should be handled through the pipeline.
  */
-void HelloTriangleApplication::createRenderPass()
+void VulkanContext::createRenderPass()
 {
     vk::AttachmentDescription colorAttachment;
     colorAttachment.setFormat(swapchain->getImageFormat())
@@ -755,7 +755,7 @@ void HelloTriangleApplication::createRenderPass()
         HUAN_CORE_BREAK("Failed to create render pass.")
 }
 
-void HelloTriangleApplication::createFramebuffers()
+void VulkanContext::createFramebuffers()
 {
     m_swapchainFramebuffers.resize(swapchain->m_imageViews.size());
     // Why I should use swapchain->m_imageViews[i], instead of m_image?
@@ -776,7 +776,7 @@ void HelloTriangleApplication::createFramebuffers()
     }
 }
 
-vk::Format HelloTriangleApplication::findSupportedFormat(const std::vector<vk::Format>& candidates,
+vk::Format VulkanContext::findSupportedFormat(const std::vector<vk::Format>& candidates,
                                                          vk::ImageTiling tiling, vk::FormatFeatureFlags features)
 {
     for (auto format : candidates)
@@ -796,18 +796,18 @@ vk::Format HelloTriangleApplication::findSupportedFormat(const std::vector<vk::F
     return vk::Format::eUndefined;
 }
 
-vk::Format HelloTriangleApplication::findDepthFormat()
+vk::Format VulkanContext::findDepthFormat()
 {
     return findSupportedFormat({vk::Format::eD32Sfloat, vk::Format::eD32SfloatS8Uint, vk::Format::eD24UnormS8Uint},
                                vk::ImageTiling::eOptimal, vk::FormatFeatureFlagBits::eDepthStencilAttachment);
 }
 
-bool HelloTriangleApplication::hasStencilComponent(const vk::Format format)
+bool VulkanContext::hasStencilComponent(const vk::Format format)
 {
     return format == vk::Format::eD32SfloatS8Uint || format == vk::Format::eD24UnormS8Uint;
 }
 
-void HelloTriangleApplication::createDepthResources()
+void VulkanContext::createDepthResources()
 {
     vk::Format depthFormat = findDepthFormat();
     // TODO: deviceLocal但是直接Dynamic 可能会导致错误 待修复
@@ -821,7 +821,7 @@ void HelloTriangleApplication::createDepthResources()
         m_depthImage->getHandle(), depthFormat, vk::ImageLayout::eUndefined, vk::ImageLayout::eDepthAttachmentOptimal);
 }
 
-void HelloTriangleApplication::createTextureImage()
+void VulkanContext::createTextureImage()
 {
     int texWidth, texHeight, texChannels;
     stbi_uc* pixels = stbi_load(TEXTURE_PATH.c_str(), &texWidth, &texHeight, &texChannels, STBI_rgb_alpha);
@@ -842,7 +842,7 @@ void HelloTriangleApplication::createTextureImage()
                                              0);
 }
 
-void HelloTriangleApplication::createTextureSampler()
+void VulkanContext::createTextureSampler()
 {
     vk::SamplerCreateInfo samplerInfo;
     samplerInfo.setMagFilter(vk::Filter::eLinear)
@@ -864,7 +864,7 @@ void HelloTriangleApplication::createTextureSampler()
     m_textureSampler = device.createSampler(samplerInfo);
 }
 
-void HelloTriangleApplication::loadModel()
+void VulkanContext::loadModel()
 {
     tinyobj::attrib_t attrib;
     std::vector<tinyobj::shape_t> shapes;
@@ -900,7 +900,7 @@ void HelloTriangleApplication::loadModel()
     HUAN_CORE_TRACE("Model vertex num: {}", m_vertices.size())
 }
 
-void HelloTriangleApplication::drawFrame()
+void VulkanContext::drawFrame()
 {
     auto& curInFlightFence = m_frameDatas[m_currentFrame].m_fence;
     auto& curImageAvailableSemaphore = m_frameDatas[m_currentFrame].m_imageAvailableSemaphore;
@@ -967,7 +967,7 @@ void HelloTriangleApplication::drawFrame()
 /**
  * 使用各自独立的队列
  */
-void HelloTriangleApplication::queryQueueFamilyIndices()
+void VulkanContext::queryQueueFamilyIndices()
 {
     const auto properties = physicalDevice.getQueueFamilyProperties();
     for (auto i = 0; i < properties.size(); i++)
@@ -993,7 +993,7 @@ void HelloTriangleApplication::queryQueueFamilyIndices()
         HUAN_CORE_BREAK("Failed to find a queue family that supports both graphics and presentation")
 }
 
-void HelloTriangleApplication::initVulkan()
+void VulkanContext::initVulkan()
 {
     createInstance();
     createDebugMessenger();
@@ -1029,16 +1029,16 @@ void HelloTriangleApplication::initVulkan()
 
     HUAN_CORE_TRACE(R"(
 
-    __  __                     ____                 __                   
+    __  __                     ____                 __
    / / / /_  ______ _____     / __ \___  ____  ____/ /__  ________  _____
   / /_/ / / / / __ `/ __ \   / /_/ / _ \/ __ \/ __  / _ \/ ___/ _ \/ ___/
- / __  / /_/ / /_/ / / / /  / _, _/  __/ / / / /_/ /  __/ /  /  __/ /    
-/_/ /_/\__,_/\__,_/_/ /_/  /_/ |_|\___/_/ /_/\__,_/\___/_/   \___/_/     
-                                                                               
+ / __  / /_/ / /_/ / / / /  / _, _/  __/ / / / /_/ /  __/ /  /  __/ /
+/_/ /_/\__,_/\__,_/_/ /_/  /_/ |_|\___/_/ /_/\__,_/\___/_/   \___/_/
+
                                                                                )");
 }
 
-void HelloTriangleApplication::mainLoop()
+void VulkanContext::mainLoop()
 {
     while (!glfwWindowShouldClose(window))
     {
@@ -1047,7 +1047,7 @@ void HelloTriangleApplication::mainLoop()
     }
 }
 
-void HelloTriangleApplication::updateUniformBuffer()
+void VulkanContext::updateUniformBuffer()
 {
     static auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
@@ -1064,7 +1064,7 @@ void HelloTriangleApplication::updateUniformBuffer()
     curUniformBuffer->updateDirectly(static_cast<void*>(&ubo), sizeof(ubo), 0);
 }
 
-void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
+void VulkanContext::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex)
 {
     vk::CommandBufferBeginInfo beginInfo;
     beginInfo.setPInheritanceInfo(nullptr);
@@ -1102,7 +1102,7 @@ void HelloTriangleApplication::recordCommandBuffer(vk::CommandBuffer commandBuff
     commandBuffer.end();
 }
 
-void HelloTriangleApplication::recreateSwapchain()
+void VulkanContext::recreateSwapchain()
 {
     int width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
@@ -1134,7 +1134,7 @@ void HelloTriangleApplication::recreateSwapchain()
     m_framebufferResized = false;
 }
 
-void HelloTriangleApplication::cleanup()
+void VulkanContext::cleanup()
 {
     HUAN_CORE_INFO("Cleaning up...\n\n")
     device.waitIdle();
@@ -1208,7 +1208,7 @@ void HelloTriangleApplication::cleanup()
     glfwTerminate();
 }
 
-HelloTriangleApplication::~HelloTriangleApplication()
+VulkanContext::~VulkanContext()
 {
     // Do nothing
 }

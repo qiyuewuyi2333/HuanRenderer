@@ -4,7 +4,7 @@
 
 #include "huan/backend/resource/vulkan_image_view.hpp"
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/backend/resource/vulkan_image.hpp"
 #include <vulkan/vulkan_format_traits.hpp>
 
@@ -30,7 +30,7 @@ ImageView::ImageView(Image& image, vk::ImageViewType viewType, vk::Format format
       .setFormat(format)
       .setSubresourceRange(m_subresourceRange);
     
-    setHandle(HelloTriangleApplication::getInstance()->device.createImageView(info));
+    setHandle(VulkanContext::getInstance()->device.createImageView(info));
     m_image->getViews().emplace(this);
 }
 

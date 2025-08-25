@@ -3,7 +3,7 @@
 //
 #include "huan/backend/swapchain.hpp"
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/log/Log.hpp"
 
 namespace huan
@@ -14,7 +14,7 @@ Scope<Swapchain> Swapchain::create(uint32_t width, uint32_t height)
 }
 
 Swapchain::Swapchain(uint32_t width, uint32_t height)
-    : m_device(HelloTriangleApplication::getInstance()->device)
+    : m_device(VulkanContext::getInstance()->device)
 {
     querySwapchainSupportInfo(width, height);
     vk::SwapchainCreateInfoKHR createInfo = {};
@@ -27,11 +27,11 @@ Swapchain::Swapchain(uint32_t width, uint32_t height)
               .setMinImageCount(m_info.imageCount)
               .setPreTransform(vk::SurfaceTransformFlagBitsKHR::eIdentity)
               .setPresentMode(m_info.presentMode)
-              .setSurface(HelloTriangleApplication::getInstance()->surface)
+              .setSurface(VulkanContext::getInstance()->surface)
               .setCompositeAlpha(vk::CompositeAlphaFlagBitsKHR::eOpaque)
               .setOldSwapchain(nullptr);
 
-    auto& queueIndices = HelloTriangleApplication::getInstance()->queueFamilyIndices;
+    auto& queueIndices = VulkanContext::getInstance()->queueFamilyIndices;
     // NOTE: 必须将这个数组放到if的外部，否则release模式下运行会出现validation error
     const uint32_t queueFamilyIndices[] = {queueIndices.graphicsFamily.value(), queueIndices.presentFamily.value()};
     if (queueIndices.graphicsFamily.value() != queueIndices.presentFamily.value())
@@ -84,8 +84,8 @@ vk::Format Swapchain::getImageFormat() const
 
 void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
 {
-    auto& physicalDevice = HelloTriangleApplication::getInstance()->physicalDevice;
-    auto formats = physicalDevice.getSurfaceFormatsKHR(HelloTriangleApplication::getInstance()->surface);
+    auto& physicalDevice = VulkanContext::getInstance()->physicalDevice;
+    auto formats = physicalDevice.getSurfaceFormatsKHR(VulkanContext::getInstance()->surface);
     this->m_info.format = formats[0];
     for (const auto& format : formats)
     {
@@ -96,7 +96,7 @@ void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
             break;
         }
     }
-    auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(HelloTriangleApplication::getInstance()->surface);
+    auto capabilities = physicalDevice.getSurfaceCapabilitiesKHR(VulkanContext::getInstance()->surface);
     m_info.imageCount = std::clamp<uint32_t>(2, capabilities.minImageCount, capabilities.maxImageCount);
     m_info.extent.width = std::clamp<uint32_t>(width, capabilities.minImageExtent.width,
                                                capabilities.maxImageExtent.width);
@@ -105,7 +105,7 @@ void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
     m_info.transform = capabilities.currentTransform;
     m_info.presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& presentMode : physicalDevice.getSurfacePresentModesKHR(
-             HelloTriangleApplication::getInstance()->surface))
+             VulkanContext::getInstance()->surface))
     {
         if (presentMode == vk::PresentModeKHR::eMailbox)
         {

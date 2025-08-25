@@ -1,6 +1,6 @@
 #include <iostream>
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/settings.hpp"
 
 int main()
@@ -12,7 +12,7 @@ int main()
         
     };
 
-    huan::HelloTriangleApplication* app = huan::HelloTriangleApplication::getInstance();
+    huan::VulkanContext* app = huan::VulkanContext::getInstance();
 
     try
     {

@@ -7,7 +7,7 @@
 #include <ranges>
 #include <vulkan/vulkan.hpp>
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/backend/shader/glsl_compiler.hpp"
 #include "huan/backend/shader/spirv_reflection.hpp"
 #include "huan/log/Log.hpp"

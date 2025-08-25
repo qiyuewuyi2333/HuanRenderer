@@ -2,14 +2,14 @@
 // Created by 86156 on 4/21/2025.
 //
 #include <huan/backend/vulkan_command.hpp>
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 
 namespace huan
 {
 
-CommandSystem::CommandSystem(): deviceHandle(HelloTriangleApplication::getInstance()->device),
-                                graphicsQueueHandle(HelloTriangleApplication::getInstance()->graphicsQueue),
-                                transferQueueHandle(HelloTriangleApplication::getInstance()->transferQueue)
+CommandSystem::CommandSystem(): deviceHandle(VulkanContext::getInstance()->device),
+                                graphicsQueueHandle(VulkanContext::getInstance()->graphicsQueue),
+                                transferQueueHandle(VulkanContext::getInstance()->transferQueue)
 {
 }
 

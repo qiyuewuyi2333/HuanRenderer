@@ -3,7 +3,7 @@
 //
 #include "huan/backend/resource/resource_system.hpp"
 
-#include "huan/HelloTriangleApplication.hpp"
+#include "huan/VulkanContext.hpp"
 #include "huan/backend/vulkan_command.hpp"
 #include "huan/backend/resource/vulkan_image_view.hpp"
 #include "huan/log/Log.hpp"
@@ -184,7 +184,7 @@ void ResourceSystem::transitionImageLayout(vk::Image image, vk::Format format, v
                                            vk::ImageLayout newLayout)
 {
     auto commandSystem = CommandSystem::getInstance();
-    auto commandPool = HelloTriangleApplication::getInstance()->m_commandPool;
+    auto commandPool = VulkanContext::getInstance()->m_commandPool;
     auto commandBuffer = commandSystem->beginSingleTimeCommands(commandPool);
 
     vk::ImageMemoryBarrier barrier = {};
@@ -263,7 +263,7 @@ bool ResourceSystem::isDepthStencilFormat(vk::Format format)
 void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage, vk::Extent3D extent)
 {
     const auto commandSystem = CommandSystem::getInstance();
-    auto commandPool = HelloTriangleApplication::getInstance()->m_commandPool;
+    auto commandPool = VulkanContext::getInstance()->m_commandPool;
     auto commandBuffer = commandSystem->beginSingleTimeCommands(commandPool);
 
     vk::BufferImageCopy region;
@@ -293,9 +293,9 @@ void ResourceSystem::copyBufferToImage(vk::Buffer srcBuffer, vk::Image dstImage,
 // }
 
 ResourceSystem::ResourceSystem()
-    : deviceHandle(HelloTriangleApplication::getInstance()->device),
-      physicalDeviceHandle(HelloTriangleApplication::getInstance()->physicalDevice),
-      allocatorHandle(HelloTriangleApplication::getInstance()->allocator)
+    : deviceHandle(VulkanContext::getInstance()->device),
+      physicalDeviceHandle(VulkanContext::getInstance()->physicalDevice),
+      allocatorHandle(VulkanContext::getInstance()->allocator)
 {
 }
 } // namespace huan
