@@ -1,0 +1,8 @@
+{
+  "dependencies": [
+    "glfw3",
+    "spdlog",
+    "spirv-cross",
+    "glm"
+  ]
+}

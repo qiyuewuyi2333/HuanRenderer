@@ -34,8 +34,7 @@ message(STATUS "Some classes in ${PROJECT_NAME} should be visible inside.")
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 find_package(Vulkan REQUIRED)
-target_link_libraries(${PROJECT_NAME} PRIVATE Vulkan::Vulkan)
-target_include_directories(${PROJECT_NAME} PUBLIC ${Vulkan_INCLUDE_DIRS})
+target_link_libraries(${PROJECT_NAME} PUBLIC Vulkan::Vulkan)
 
 # VMA
 target_include_directories(${PROJECT_NAME} PUBLIC ${CMAKE_SOURCE_DIR}/third_party/VulkanMemoryAllocator/include)
@@ -66,6 +65,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-reflect)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-util)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-msl)
 target_link_libraries(${PROJECT_NAME} PRIVATE spirv-cross-c)
+
 
 find_package(glfw3 CONFIG REQUIRED)
 target_link_libraries(${PROJECT_NAME} PRIVATE glfw)
