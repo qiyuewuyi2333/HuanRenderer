@@ -30,12 +30,12 @@ struct VertexAttribute
     uint32_t offset = 0;
 };
 
-class SubMesh : public Component
+class SubMesh final : public Component
 {
 public:
-    SubMesh(const std::string& name = {});
-    virtual ~SubMesh() override = default;
-    virtual std::type_index getType() const override;
+    explicit SubMesh(const std::string& name = {});
+    ~SubMesh() override = default;
+    std::type_index getType() const override;
     vk::IndexType m_indexType{};
     uint32_t m_indexOffset = 0;
     uint32_t m_verticesCount = 0;

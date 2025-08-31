@@ -12,7 +12,11 @@ option(HUAN_ENABLE_ASSERT "Enable assert" ON)
 
 file(GLOB_RECURSE SRC_FILES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.cpp")
 
-add_library(${PROJECT_NAME} SHARED ${SRC_FILES})
+add_library(${PROJECT_NAME} SHARED ${SRC_FILES}
+        include/huan/scene_framework/components/mesh.hpp
+        src/framework/components/mesh.cpp
+        src/framework/components/AABB3D.cpp
+        include/huan/scene_framework/components/AABB3D.hpp)
 
 if (${HUAN_DEBUG})
     target_compile_definitions(${PROJECT_NAME} PUBLIC HUAN_DEBUG)

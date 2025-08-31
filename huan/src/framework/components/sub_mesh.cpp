@@ -7,11 +7,9 @@
 
 namespace huan::framework::scene_graph
 {
-SubMesh::SubMesh(const std::string& name)
-    : Component(name)
+SubMesh::SubMesh(const std::string& name) : Component(name)
 {
 }
-
 std::type_index SubMesh::getType() const
 {
     return typeid(SubMesh);
@@ -26,7 +24,7 @@ void SubMesh::setAttribute(const std::string& name, const VertexAttribute& attri
 std::optional<VertexAttribute> SubMesh::getAttribute(const std::string& name) const
 {
     auto it = m_vertexAttributes.find(name);
-    if (it != m_vertexAttributes.end() )
+    if (it != m_vertexAttributes.end())
     {
         return it->second;
     }
@@ -62,4 +60,4 @@ void SubMesh::computeShaderVariant()
         // TODO: Texture
     }
 }
-}
+} // namespace huan::framework::scene_graph

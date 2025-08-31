@@ -6,6 +6,7 @@
 #define MATERIAL_HPP
 #include "huan/scene_framework/component.hpp"
 
+#include <glm/vec3.hpp>
 #include <unordered_map>
 
 namespace huan::framework::scene_graph
@@ -27,15 +28,17 @@ enum class AlphaMode
 
 class Material : public Component
 {
-public:
+  public:
     explicit Material(const std::string& name);
     Material(Material&& that) noexcept = default;
     ~Material() override = default;
     [[nodiscard]] std::type_index getType() const override;
 
     std::unordered_map<std::string, Texture*> m_textures;
-
-
+    glm::vec3 m_emissive{0.f, 0.f, 0.f};
+    bool m_doubleSided{false};
+    float m_alphaCutoff{0.5f};
+    AlphaMode m_alphaMode{AlphaMode::Opaque};
 };
-}
-#endif //MATERIAL_HPP
+} // namespace huan::framework::scene_graph
+#endif // MATERIAL_HPP

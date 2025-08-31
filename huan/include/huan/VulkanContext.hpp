@@ -150,7 +150,7 @@ private:
     void createFrameData();
 
     void recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_t imageIndex);
-    void recreateSwapchain();
+    void recreateSwapChain();
 
 public:
     struct QueueFamilyIndices

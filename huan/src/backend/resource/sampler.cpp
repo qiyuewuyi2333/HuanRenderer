@@ -17,8 +17,21 @@ Sampler::Sampler(vk::Device& deviceHandle, const vk::SamplerCreateInfo& info)
         HUAN_CORE_ERROR("Renderer: Failed to create sampler. ")
 }
 
+Sampler::Sampler(Sampler&& that) noexcept : ParentType(std::move(that))
+{
+}
+Sampler& Sampler::operator=(Sampler&& that) noexcept
+{
+    if (this != &that)
+    {
+        getDeviceHandle().destroySampler(getHandle());
+        getHandle() = that.getHandle();
+        that.getHandle() = VK_NULL_HANDLE;
+    }
+    return *this;
+}
 Sampler::~Sampler()
 {
     getDeviceHandle().destroySampler(getHandle());
 }
-}
+} // namespace huan::runtime::vulkan

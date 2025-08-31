@@ -8,18 +8,16 @@
 
 namespace huan::framework::scene_graph
 {
+Component::Component(const std::string& name) : m_name(name)
+{
+}
 
 Component::Component(std::string&& name) : m_name(std::move(name))
 {
-}
-Component::Component(const std::string& name)
-    :m_name(name)
-{
-    
 }
 
 const std::string& Component::getName() const
 {
     return m_name;
 }
-} // namespace huan::framework
+} // namespace huan::framework::scene_graph
