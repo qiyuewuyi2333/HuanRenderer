@@ -13,7 +13,7 @@ Scope<Swapchain> Swapchain::create(uint32_t width, uint32_t height)
     return createScope<Swapchain>(width, height);
 }
 
-Swapchain::Swapchain(uint32_t width, uint32_t height)
+Swapchain::Swapchain(const uint32_t width, const uint32_t height)
     : m_device(VulkanContext::getInstance()->device)
 {
     querySwapchainSupportInfo(width, height);
@@ -102,6 +102,10 @@ void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
                                                capabilities.maxImageExtent.width);
     m_info.extent.height = std::clamp<uint32_t>(height, capabilities.minImageExtent.height,
                                                 capabilities.maxImageExtent.height);
+    HUAN_CORE_INFO(
+        "SwapChain capabilities: minImageCount: {}, maxImageCount: {}, minImageExtent: {{{} {}}}, maxImageExtent: {{{} {}}}",
+        capabilities.minImageCount, capabilities.maxImageCount, capabilities.minImageExtent.width,
+        capabilities.minImageExtent.height, capabilities.maxImageExtent.width, capabilities.maxImageExtent.height)
     m_info.transform = capabilities.currentTransform;
     m_info.presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& presentMode : physicalDevice.getSurfacePresentModesKHR(

@@ -8,7 +8,6 @@
 #include <set>
 #include <vulkan/vulkan_enums.hpp>
 #include <vulkan/vulkan_structs.hpp>
-
 #include "../include/huan/backend/resource/resource_system.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "huan/backend/resource/vulkan_buffer.hpp"
@@ -16,7 +15,6 @@
 #include "huan/backend/shader.hpp"
 #include "huan/log/Log.hpp"
 #include "huan/settings.hpp"
-#include "huan/utils/file_load.hpp"
 #include "huan/utils/stb_image.h"
 #include "huan/utils/tiny_obj_loader.h"
 
@@ -67,8 +65,10 @@ void vkDestroyDebugUtilsMessengerEXT(VkInstance instance, VkDebugUtilsMessengerE
 
 static void framebufferResizeCallback(GLFWwindow* window, int width, int height)
 {
-    auto app = huan::VulkanContext::getInstance();
+    const auto app = huan::VulkanContext::getInstance();
     app->m_framebufferResized = true;
+    huan::globalAppSettings.width = width;
+    huan::globalAppSettings.height = height;
 }
 
 namespace huan
@@ -115,7 +115,7 @@ void VulkanContext::createCommandPool()
 {
     vk::CommandPoolCreateInfo commandPoolCreateInfo;
     commandPoolCreateInfo.setFlags(vk::CommandPoolCreateFlagBits::eResetCommandBuffer)
-        .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
+                         .setQueueFamilyIndex(queueFamilyIndices.graphicsFamily.value());
     m_commandPool = device.createCommandPool(commandPoolCreateInfo);
     if (!m_commandPool)
         HUAN_CORE_ERROR("Failed to create graphics command pool");
@@ -131,8 +131,8 @@ void VulkanContext::createCommandBuffer()
 {
     vk::CommandBufferAllocateInfo commandBufferAllocateInfo;
     commandBufferAllocateInfo.setCommandPool(m_commandPool)
-        .setLevel(vk::CommandBufferLevel::ePrimary)
-        .setCommandBufferCount(1);
+                             .setLevel(vk::CommandBufferLevel::ePrimary)
+                             .setCommandBufferCount(1);
     for (size_t i = 0; i < globalAppSettings.maxFramesInFlight; ++i)
     {
         m_frameDatas[i].m_commandBuffer = device.allocateCommandBuffers(commandBufferAllocateInfo)[0];
@@ -296,16 +296,16 @@ void VulkanContext::createInstance()
     }
 
     appInfo.setApiVersion(vk::ApiVersion13)
-        .setPApplicationName(globalAppSettings.title)
-        .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
-        .setPEngineName("HuanRenderer")
-        .setEngineVersion(VK_MAKE_VERSION(1, 0, 0));
+           .setPApplicationName(globalAppSettings.title)
+           .setApplicationVersion(VK_MAKE_VERSION(1, 0, 0))
+           .setPEngineName("HuanRenderer")
+           .setEngineVersion(VK_MAKE_VERSION(1, 0, 0));
 
     vkInstanceCreateInfo.setPApplicationInfo(&appInfo)
-        .setEnabledExtensionCount(requiredInstanceExtensions.size())
-        .setPpEnabledExtensionNames(requiredInstanceExtensions.data())
-        .setEnabledLayerCount(requiredLayers.size())
-        .setPpEnabledLayerNames(requiredLayers.data());
+                        .setEnabledExtensionCount(requiredInstanceExtensions.size())
+                        .setPpEnabledExtensionNames(requiredInstanceExtensions.data())
+                        .setEnabledLayerCount(requiredLayers.size())
+                        .setPpEnabledLayerNames(requiredLayers.data());
 
     if (globalAppSettings.isVulkanValidationEnabled)
     {
@@ -403,9 +403,9 @@ void VulkanContext::createDevice()
     features.samplerAnisotropy = VK_TRUE;
 
     deviceCreateInfo.setQueueCreateInfos(queueCreateInfos)
-        .setEnabledExtensionCount(static_cast<uint32_t>(requiredDeviceExtensions.size()))
-        .setPpEnabledExtensionNames(requiredDeviceExtensions.data())
-        .setPEnabledFeatures(&features);
+                    .setEnabledExtensionCount(static_cast<uint32_t>(requiredDeviceExtensions.size()))
+                    .setPpEnabledExtensionNames(requiredDeviceExtensions.data())
+                    .setPEnabledFeatures(&features);
 
     device = physicalDevice.createDevice(deviceCreateInfo);
 }
@@ -444,6 +444,11 @@ void VulkanContext::createSurface()
 void VulkanContext::createSwapchain()
 {
     swapchain = Swapchain::create(globalAppSettings.width, globalAppSettings.height);
+
+    HUAN_CORE_INFO("Swapchain created! Viewport size width: {}, height: {}", swapchain->getViewport().width,
+                   swapchain->getViewport().height)
+    HUAN_CORE_INFO("Swapchain extent size width: {}, height: {}", swapchain->m_info.extent.width,
+                   swapchain->m_info.extent.height)
 }
 
 void VulkanContext::createDescriptorPool()
@@ -473,38 +478,38 @@ void VulkanContext::createDescriptorSets()
 
     vk::DescriptorSetAllocateInfo allocateInfo;
     allocateInfo.setDescriptorPool(m_descriptorPool)
-        .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
-        .setSetLayouts(layouts);
+                .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
+                .setSetLayouts(layouts);
 
     auto sets = device.allocateDescriptorSets(allocateInfo);
     // NOTE: 所有的渲染帧使用相同的Image 资源
     vk::DescriptorImageInfo imageInfo;
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
-        .setImageView((*m_textureImage->getViews().begin())->getHandle())
-        .setSampler(m_textureSampler);
+             .setImageView((*m_textureImage->getViews().begin())->getHandle())
+             .setSampler(m_textureSampler);
 
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
     {
         m_frameDatas[i].m_descriptorSet = sets[i];
         vk::DescriptorBufferInfo bufferInfo; // 定义 描述符绑定的 资源信息 buffer or image
         bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->getHandle())
-            .setOffset(0)
-            .setRange(sizeof(UniformBufferObject));
+                  .setOffset(0)
+                  .setRange(sizeof(UniformBufferObject));
 
         vk::WriteDescriptorSet writeBufferInfo;
         writeBufferInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
-            .setDstBinding(0)
-            .setDstArrayElement(0)
-            .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-            .setDescriptorCount(1)
-            .setBufferInfo(bufferInfo);
+                       .setDstBinding(0)
+                       .setDstArrayElement(0)
+                       .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                       .setDescriptorCount(1)
+                       .setBufferInfo(bufferInfo);
         vk::WriteDescriptorSet imageWriteInfo;
         imageWriteInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
-            .setDstBinding(1)
-            .setDstArrayElement(0)
-            .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-            .setDescriptorCount(1)
-            .setImageInfo(imageInfo);
+                      .setDstBinding(1)
+                      .setDstArrayElement(0)
+                      .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                      .setDescriptorCount(1)
+                      .setImageInfo(imageInfo);
 
         device.updateDescriptorSets({writeBufferInfo, imageWriteInfo}, nullptr);
     }
@@ -526,12 +531,12 @@ void VulkanContext::createGraphicsPipeline()
 
     vk::PipelineShaderStageCreateInfo vertexShaderStageInfo;
     vertexShaderStageInfo.setStage(vk::ShaderStageFlagBits::eVertex)
-        .setModule(vsModule.getHandle())
-        .setPName(vsModule.getEntryPoint().c_str());
+                         .setModule(vsModule.getHandle())
+                         .setPName(vsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo fragShaderStageInfo;
     fragShaderStageInfo.setStage(vk::ShaderStageFlagBits::eFragment)
-        .setModule(fsModule.getHandle())
-        .setPName(fsModule.getEntryPoint().c_str());
+                       .setModule(fsModule.getHandle())
+                       .setPName(fsModule.getEntryPoint().c_str());
     vk::PipelineShaderStageCreateInfo shaderStages[] = {vertexShaderStageInfo, fragShaderStageInfo};
 
     // Dynamic states
@@ -539,13 +544,13 @@ void VulkanContext::createGraphicsPipeline()
 
     vk::PipelineDynamicStateCreateInfo dynamicState;
     dynamicState.setDynamicStateCount(static_cast<uint32_t>(dynamicStates.size()))
-        .setPDynamicStates(dynamicStates.data());
+                .setPDynamicStates(dynamicStates.data());
     // Input state
     vk::PipelineVertexInputStateCreateInfo vertexInputInfo;
     auto bindingDescriptions = Vertex::getBindingDescription();
     auto attributeDescriptions = Vertex::getAttributeDescriptions();
     vertexInputInfo.setVertexBindingDescriptions(bindingDescriptions)
-        .setVertexAttributeDescriptions(attributeDescriptions);
+                   .setVertexAttributeDescriptions(attributeDescriptions);
 
     // Input assembly
     vk::PipelineInputAssemblyStateCreateInfo inputAssembly;
@@ -558,21 +563,21 @@ void VulkanContext::createGraphicsPipeline()
     // Rasterizer
     vk::PipelineRasterizationStateCreateInfo rasterizerInfo;
     rasterizerInfo.setDepthClampEnable(false)
-        .setRasterizerDiscardEnable(false)
-        .setPolygonMode(vk::PolygonMode::eFill)
-        .setCullMode(vk::CullModeFlagBits::eBack)
-        .setFrontFace(vk::FrontFace::eCounterClockwise)
-        .setDepthBiasEnable(false)
-        .setLineWidth(1.0f);
+                  .setRasterizerDiscardEnable(false)
+                  .setPolygonMode(vk::PolygonMode::eFill)
+                  .setCullMode(vk::CullModeFlagBits::eBack)
+                  .setFrontFace(vk::FrontFace::eCounterClockwise)
+                  .setDepthBiasEnable(false)
+                  .setLineWidth(1.0f);
 
     // Multisampling
     vk::PipelineMultisampleStateCreateInfo multisamplingInfo;
     multisamplingInfo.setSampleShadingEnable(false)
-        .setRasterizationSamples(vk::SampleCountFlagBits::e1)
-        .setMinSampleShading(1.0f)
-        .setPSampleMask(nullptr)
-        .setAlphaToCoverageEnable(false)
-        .setAlphaToOneEnable(false);
+                     .setRasterizationSamples(vk::SampleCountFlagBits::e1)
+                     .setMinSampleShading(1.0f)
+                     .setPSampleMask(nullptr)
+                     .setAlphaToCoverageEnable(false)
+                     .setAlphaToOneEnable(false);
 
     // Depth and stencil testing
     // TODO: for now, nullptr
@@ -603,20 +608,20 @@ void VulkanContext::createGraphicsPipeline()
     // Global Color blend state
     vk::PipelineColorBlendStateCreateInfo colorBlendInfo;
     colorBlendInfo.setLogicOpEnable(false)
-        .setLogicOp(vk::LogicOp::eCopy)
-        .setAttachmentCount(1)
-        .setPAttachments(&colorBlendAttachment)
-        .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
+                  .setLogicOp(vk::LogicOp::eCopy)
+                  .setAttachmentCount(1)
+                  .setPAttachments(&colorBlendAttachment)
+                  .setBlendConstants({0.0f, 0.0f, 0.0f, 0.0f});
 
     // 深度与模板缓冲
     vk::PipelineDepthStencilStateCreateInfo depthStencilInfo{};
     depthStencilInfo.setDepthTestEnable(true)
-        .setDepthWriteEnable(true)
-        .setDepthCompareOp(vk::CompareOp::eLess)
-        .setDepthBoundsTestEnable(false)
-        .setMinDepthBounds(0.0f)
-        .setMaxDepthBounds(1.0f)
-        .setStencilTestEnable(false);
+                    .setDepthWriteEnable(true)
+                    .setDepthCompareOp(vk::CompareOp::eLess)
+                    .setDepthBoundsTestEnable(false)
+                    .setMinDepthBounds(0.0f)
+                    .setMaxDepthBounds(1.0f)
+                    .setStencilTestEnable(false);
 
     // Pipeline layout
     vk::PipelineLayoutCreateInfo pipelineLayoutInfo;
@@ -630,20 +635,20 @@ void VulkanContext::createGraphicsPipeline()
 
     vk::GraphicsPipelineCreateInfo pipelineInfo;
     pipelineInfo.setStageCount(2)
-        .setPStages(shaderStages)
-        .setPVertexInputState(&vertexInputInfo)
-        .setPInputAssemblyState(&inputAssembly)
-        .setPViewportState(&viewportState)
-        .setPRasterizationState(&rasterizerInfo)
-        .setPMultisampleState(&multisamplingInfo)
-        .setPColorBlendState(&colorBlendInfo)
-        .setPDepthStencilState(&depthStencilInfo)
-        .setPDynamicState(&dynamicState)
-        .setLayout(m_pipelineLayout)
-        .setRenderPass(m_renderPass)
-        .setSubpass(0)
-        .setBasePipelineHandle(nullptr)
-        .setBasePipelineIndex(-1);
+                .setPStages(shaderStages)
+                .setPVertexInputState(&vertexInputInfo)
+                .setPInputAssemblyState(&inputAssembly)
+                .setPViewportState(&viewportState)
+                .setPRasterizationState(&rasterizerInfo)
+                .setPMultisampleState(&multisamplingInfo)
+                .setPColorBlendState(&colorBlendInfo)
+                .setPDepthStencilState(&depthStencilInfo)
+                .setPDynamicState(&dynamicState)
+                .setLayout(m_pipelineLayout)
+                .setRenderPass(m_renderPass)
+                .setSubpass(0)
+                .setBasePipelineHandle(nullptr)
+                .setBasePipelineIndex(-1);
 
     auto pipelineRes = device.createGraphicsPipeline(nullptr, pipelineInfo);
     if (pipelineRes.result != vk::Result::eSuccess)
@@ -665,16 +670,16 @@ void VulkanContext::createDescriptorSetLayout()
 {
     vk::DescriptorSetLayoutBinding uboLayoutBinding;
     uboLayoutBinding.setBinding(0)
-        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
-        .setDescriptorCount(1)
-        .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
-        .setPImmutableSamplers(nullptr);
+                    .setDescriptorType(vk::DescriptorType::eUniformBuffer)
+                    .setDescriptorCount(1)
+                    .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
+                    .setPImmutableSamplers(nullptr);
     vk::DescriptorSetLayoutBinding combinedImageSamplerBinding;
     combinedImageSamplerBinding.setBinding(1)
-        .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
-        .setDescriptorCount(1)
-        .setStageFlags(vk::ShaderStageFlagBits::eFragment)
-        .setPImmutableSamplers(nullptr);
+                               .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
+                               .setDescriptorCount(1)
+                               .setStageFlags(vk::ShaderStageFlagBits::eFragment)
+                               .setPImmutableSamplers(nullptr);
 
     std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, combinedImageSamplerBinding};
 
@@ -694,16 +699,16 @@ void VulkanContext::createRenderPass()
 {
     vk::AttachmentDescription colorAttachment;
     colorAttachment.setFormat(swapchain->getImageFormat())
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setLoadOp(vk::AttachmentLoadOp::eClear) // Before rendering
-        .setStoreOp(vk::AttachmentStoreOp::eStore)
-        // After rendering, we want to keep the contents for display on the screen
-        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        // the format of framebuffer or texture. Initial layout specifies the layout the image will have before the
-        // render pass begin.
-        .setFinalLayout(vk::ImageLayout::ePresentSrcKHR); // Auto transition to when the RenderPass ends.
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setLoadOp(vk::AttachmentLoadOp::eClear) // Before rendering
+                   .setStoreOp(vk::AttachmentStoreOp::eStore)
+                   // After rendering, we want to keep the contents for display on the screen
+                   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   // the format of framebuffer or texture. Initial layout specifies the layout the image will have before the
+                   // render pass begin.
+                   .setFinalLayout(vk::ImageLayout::ePresentSrcKHR); // Auto transition to when the RenderPass ends.
     // NOTE: we don't care about the frame buffer's layout before the render pass begins, because we will clear it when
     // load. But after the render pass ends, we want to transition the image to the layout that is optimal for
     // presentation to the screen.
@@ -716,20 +721,20 @@ void VulkanContext::createRenderPass()
     // 在RenderPass中使用深度 缓冲
     vk::AttachmentDescription depthAttachment;
     depthAttachment.setFormat(findDepthFormat())
-        .setSamples(vk::SampleCountFlagBits::e1)
-        .setLoadOp(vk::AttachmentLoadOp::eClear)
-        .setStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
-        .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
-        .setInitialLayout(vk::ImageLayout::eUndefined)
-        .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
+                   .setSamples(vk::SampleCountFlagBits::e1)
+                   .setLoadOp(vk::AttachmentLoadOp::eClear)
+                   .setStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setStencilLoadOp(vk::AttachmentLoadOp::eDontCare)
+                   .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
+                   .setInitialLayout(vk::ImageLayout::eUndefined)
+                   .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
     vk::AttachmentReference depthAttachmentRef = {};
     depthAttachmentRef.setAttachment(1).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::SubpassDescription subpass;
     subpass.setPipelineBindPoint(vk::PipelineBindPoint::eGraphics)
-        .setColorAttachments(colorAttachmentRef)
-        .setPDepthStencilAttachment(&depthAttachmentRef); // subpass 只能使用一个深度附件
+           .setColorAttachments(colorAttachmentRef)
+           .setPDepthStencilAttachment(&depthAttachmentRef); // subpass 只能使用一个深度附件
 
     vk::SubpassDependency subpassDependency;
     // this dependency is used to make sure that the color attachment is ready before the beginning of the subpass.
@@ -737,13 +742,14 @@ void VulkanContext::createRenderPass()
     // part of the render pass. And if the dst is 0, it means before the subpass. So if src is 0, it means after the
     // subpasses.
     subpassDependency.setSrcSubpass(VK_SUBPASS_EXTERNAL)
-        .setDstSubpass(0)
-        .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                         vk::PipelineStageFlagBits::eEarlyFragmentTests)
-        .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
-                         vk::PipelineStageFlagBits::eEarlyFragmentTests)
-        .setSrcAccessMask(vk::AccessFlagBits::eNone)
-        .setDstAccessMask(vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
+                     .setDstSubpass(0)
+                     .setSrcStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                                      vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                     .setDstStageMask(vk::PipelineStageFlagBits::eColorAttachmentOutput |
+                                      vk::PipelineStageFlagBits::eEarlyFragmentTests)
+                     .setSrcAccessMask(vk::AccessFlagBits::eNone)
+                     .setDstAccessMask(
+                         vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
     std::array<vk::AttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 
     vk::RenderPassCreateInfo renderPassInfo;
@@ -761,9 +767,9 @@ void VulkanContext::createFramebuffers()
     // Because the imageView essentially is a wrapper of the correspond image in the swapchain. (or a super set).
     vk::FramebufferCreateInfo framebufferInfo;
     framebufferInfo.setRenderPass(m_renderPass)
-        .setWidth(swapchain->m_info.extent.width)
-        .setHeight(swapchain->m_info.extent.height)
-        .setLayers(1); // The number of layers of the imageView.
+                   .setWidth(swapchain->m_info.extent.width)
+                   .setHeight(swapchain->m_info.extent.height)
+                   .setLayers(1); // The number of layers of the imageView.
     for (size_t i = 0; i < swapchain->m_imageViews.size(); i++)
     {
         std::array attachments = {swapchain->m_imageViews[i], (*m_depthImage->getViews().begin())->getHandle()};
@@ -841,20 +847,20 @@ void VulkanContext::createTextureSampler()
 {
     vk::SamplerCreateInfo samplerInfo;
     samplerInfo.setMagFilter(vk::Filter::eLinear)
-        .setMinFilter(vk::Filter::eLinear)
-        .setAddressModeU(vk::SamplerAddressMode::eRepeat)
-        .setAddressModeV(vk::SamplerAddressMode::eRepeat)
-        .setAddressModeW(vk::SamplerAddressMode::eRepeat)
-        .setAnisotropyEnable(VK_TRUE)
-        .setMaxAnisotropy(physicalDevice.getProperties().limits.maxSamplerAnisotropy)
-        .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
-        .setUnnormalizedCoordinates(VK_FALSE)
-        .setCompareEnable(VK_FALSE)
-        .setCompareOp(vk::CompareOp::eAlways)
-        .setMipmapMode(vk::SamplerMipmapMode::eLinear)
-        .setMipLodBias(0.0f)
-        .setMinLod(0.0f)
-        .setMaxLod(0.0f);
+               .setMinFilter(vk::Filter::eLinear)
+               .setAddressModeU(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeV(vk::SamplerAddressMode::eRepeat)
+               .setAddressModeW(vk::SamplerAddressMode::eRepeat)
+               .setAnisotropyEnable(VK_TRUE)
+               .setMaxAnisotropy(physicalDevice.getProperties().limits.maxSamplerAnisotropy)
+               .setBorderColor(vk::BorderColor::eFloatOpaqueWhite)
+               .setUnnormalizedCoordinates(VK_FALSE)
+               .setCompareEnable(VK_FALSE)
+               .setCompareOp(vk::CompareOp::eAlways)
+               .setMipmapMode(vk::SamplerMipmapMode::eLinear)
+               .setMipLodBias(0.0f)
+               .setMinLod(0.0f)
+               .setMaxLod(0.0f);
 
     m_textureSampler = device.createSampler(samplerInfo);
 }
@@ -945,7 +951,7 @@ void VulkanContext::drawFrame()
     presentInfo.setWaitSemaphores(signalSemaphores);
     presentInfo.setSwapchains(swapchain->m_swapchain).setImageIndices(imageIndex);
 
-    auto resPresent = presentQueue.presentKHR(presentInfo);
+    const auto resPresent = presentQueue.presentKHR(presentInfo);
     if (resPresent == vk::Result::eErrorOutOfDateKHR || resPresent == vk::Result::eSuboptimalKHR ||
         m_framebufferResized)
     {
@@ -1068,8 +1074,8 @@ void VulkanContext::recordCommandBuffer(vk::CommandBuffer commandBuffer, uint32_
 
     vk::RenderPassBeginInfo renderPassInfo;
     renderPassInfo.setRenderPass(m_renderPass)
-        .setFramebuffer(m_swapchainFramebuffers[imageIndex])
-        .setRenderArea(vk::Rect2D{{}, swapchain->m_info.extent});
+                  .setFramebuffer(m_swapchainFramebuffers[imageIndex])
+                  .setRenderArea(vk::Rect2D{{}, swapchain->m_info.extent});
     // 联合体 NOTE: clearValues中的顺序应当和AttachmentDescription的顺序一致
     std::array<vk::ClearValue, 2> clearValues = {{{{129.0 / 255.0, 216.0 / 255.0, 207.0 / 255.0, 1.0f}}, {{1, 0}}}};
 
@@ -1106,6 +1112,7 @@ void VulkanContext::recreateSwapChain()
         glfwWaitEvents();
     }
     device.waitIdle();
+    HUAN_CORE_INFO("Recreating swapchain... frameBuffer width: {}, height: {}", width, height)
     // TODO: Recreate renderpass
     // It's necessary when you move the renderpass from a standard range to a high dynamic range monitor.
 
@@ -1168,8 +1175,6 @@ void VulkanContext::cleanup()
     HUAN_CORE_INFO("DescriptorPool destroyed.")
     device.destroyDescriptorSetLayout(m_descriptorSetLayout);
     HUAN_CORE_INFO("DescriptorSet layout destroyed. ")
-    vkInstance.destroySurfaceKHR(surface);
-    HUAN_CORE_INFO("Surface destroyed.")
     device.destroySampler(m_textureSampler);
     HUAN_CORE_INFO("Sampler destroyed.")
     for (auto& view : m_textureImage->getViews())
@@ -1186,6 +1191,9 @@ void VulkanContext::cleanup()
     HUAN_CORE_INFO("Allocator destroyed.")
     device.destroy();
     HUAN_CORE_INFO("Device destroyed.")
+
+    vkInstance.destroySurfaceKHR(surface);
+    HUAN_CORE_INFO("Surface destroyed.")
 
     if (debugMessenger)
     {
@@ -1206,4 +1214,4 @@ VulkanContext::~VulkanContext()
 {
     // Do nothing
 }
-} // namespace huan
+} // namespace huanFMT_SHARED
