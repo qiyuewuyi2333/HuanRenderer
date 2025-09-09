@@ -14,7 +14,7 @@ namespace huan
         Swapchain(uint32_t width, uint32_t height);
         ~Swapchain();
 
-        vk::Result acquireNextImage(uint64_t timeOut, vk::Semaphore imageAvailableSemaphore, vk::Fence inFlightFence, uint32_t& imageIndex);
+        vk::Result acquireNextImage(uint64_t timeOut, vk::Semaphore imageAvailableSemaphore, vk::Fence inFlightFence, uint32_t& imageIndex) const;
         struct SwapchainSupportInfo
         {
             uint32_t imageCount;
@@ -28,8 +28,6 @@ namespace huan
         vk::Format getImageFormat() const;
     private:
         void querySwapchainSupportInfo(uint32_t width, uint32_t height);
-        void getImages();
-        void createImageViews();
     INNER_VISIBLE:
         vk::Device& m_device;
         vk::SwapchainKHR m_swapchain;

@@ -460,11 +460,11 @@ void VulkanContext::createDescriptorPool()
         vk::DescriptorPoolSize(vk::DescriptorType::eCombinedImageSampler, 3)};
 
     poolCreateInfo.setPoolSizes(poolSizes).setMaxSets(
-        globalAppSettings.maxFramesInFlight); // 可以分配的最大描述符集数量
+        globalAppSettings.maxFramesInFlight); // 可以分配的最大描述符集数量 我们为每一个Frame分配一个描述符集
 
     m_descriptorPool = device.createDescriptorPool(poolCreateInfo);
-    if (!m_descriptorPool)
-        HUAN_CORE_BREAK("Failed to create descriptor pool")
+    if (!m_descriptorPool) [[unlikely]]
+    HUAN_CORE_BREAK("Failed to create descriptor pool")
 
     HUAN_CORE_INFO("DescriptorSet pool created! ")
 }
@@ -476,34 +476,38 @@ void VulkanContext::createDescriptorSets()
 {
     std::vector<vk::DescriptorSetLayout> layouts(globalAppSettings.maxFramesInFlight, m_descriptorSetLayout);
 
-    vk::DescriptorSetAllocateInfo allocateInfo;
+    vk::DescriptorSetAllocateInfo allocateInfo{};
     allocateInfo.setDescriptorPool(m_descriptorPool)
                 .setDescriptorSetCount(globalAppSettings.maxFramesInFlight)
                 .setSetLayouts(layouts);
 
-    auto sets = device.allocateDescriptorSets(allocateInfo);
+    const auto sets = device.allocateDescriptorSets(allocateInfo);
+
     // NOTE: 所有的渲染帧使用相同的Image 资源
-    vk::DescriptorImageInfo imageInfo;
+    vk::DescriptorImageInfo imageInfo{};
     imageInfo.setImageLayout(vk::ImageLayout::eShaderReadOnlyOptimal)
              .setImageView((*m_textureImage->getViews().begin())->getHandle())
              .setSampler(m_textureSampler);
 
     for (uint32_t i = 0; i < globalAppSettings.maxFramesInFlight; i++)
     {
-        m_frameDatas[i].m_descriptorSet = sets[i];
-        vk::DescriptorBufferInfo bufferInfo; // 定义 描述符绑定的 资源信息 buffer or image
+        auto& tarDescriptorSet = m_frameDatas[i].m_descriptorSet;
+        tarDescriptorSet = sets[i]; // Allocate to per frameData
+
+        vk::DescriptorBufferInfo bufferInfo{}; // 定义 描述符绑定的 资源信息 buffer or image
         bufferInfo.setBuffer(m_frameDatas[i].m_uniformBuffer->getHandle())
                   .setOffset(0)
                   .setRange(sizeof(UniformBufferObject));
 
-        vk::WriteDescriptorSet writeBufferInfo;
+        vk::WriteDescriptorSet writeBufferInfo{}; // Write DescriptorSet for UniformBuffer in this frameData
         writeBufferInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
                        .setDstBinding(0)
                        .setDstArrayElement(0)
                        .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                        .setDescriptorCount(1)
                        .setBufferInfo(bufferInfo);
-        vk::WriteDescriptorSet imageWriteInfo;
+
+        vk::WriteDescriptorSet imageWriteInfo{}; // Write DescriptorSet for Image in this frameData, even we share the same image for different frames
         imageWriteInfo.setDstSet(m_frameDatas[i].m_descriptorSet)
                       .setDstBinding(1)
                       .setDstArrayElement(0)
@@ -668,13 +672,14 @@ void VulkanContext::createGraphicsPipeline()
  */
 void VulkanContext::createDescriptorSetLayout()
 {
-    vk::DescriptorSetLayoutBinding uboLayoutBinding;
+    vk::DescriptorSetLayoutBinding uboLayoutBinding{};
     uboLayoutBinding.setBinding(0)
                     .setDescriptorType(vk::DescriptorType::eUniformBuffer)
                     .setDescriptorCount(1)
                     .setStageFlags(vk::ShaderStageFlagBits::eVertex) // 定义这个ubo会在vertex stage使用
                     .setPImmutableSamplers(nullptr);
-    vk::DescriptorSetLayoutBinding combinedImageSamplerBinding;
+
+    vk::DescriptorSetLayoutBinding combinedImageSamplerBinding{};
     combinedImageSamplerBinding.setBinding(1)
                                .setDescriptorType(vk::DescriptorType::eCombinedImageSampler)
                                .setDescriptorCount(1)
@@ -683,7 +688,7 @@ void VulkanContext::createDescriptorSetLayout()
 
     std::array<vk::DescriptorSetLayoutBinding, 2> bindings = {uboLayoutBinding, combinedImageSamplerBinding};
 
-    vk::DescriptorSetLayoutCreateInfo layoutInfo;
+    vk::DescriptorSetLayoutCreateInfo layoutInfo{};
     layoutInfo.setBindings(bindings);
 
     m_descriptorSetLayout = device.createDescriptorSetLayout(layoutInfo);
@@ -697,7 +702,7 @@ void VulkanContext::createDescriptorSetLayout()
  */
 void VulkanContext::createRenderPass()
 {
-    vk::AttachmentDescription colorAttachment;
+    vk::AttachmentDescription colorAttachment{};
     colorAttachment.setFormat(swapchain->getImageFormat())
                    .setSamples(vk::SampleCountFlagBits::e1)
                    .setLoadOp(vk::AttachmentLoadOp::eClear) // Before rendering
@@ -713,13 +718,13 @@ void VulkanContext::createRenderPass()
     // load. But after the render pass ends, we want to transition the image to the layout that is optimal for
     // presentation to the screen.
 
-    vk::AttachmentReference colorAttachmentRef = {};
     // set the attachment index in attachment descriptions
+    vk::AttachmentReference colorAttachmentRef{};
     /* The index of the attachment in this array is directly referenced from the fragment shader with the
      * layout(location = 0) out vec4 outColor directive */
     colorAttachmentRef.setAttachment(0).setLayout(vk::ImageLayout::eColorAttachmentOptimal);
     // 在RenderPass中使用深度 缓冲
-    vk::AttachmentDescription depthAttachment;
+    vk::AttachmentDescription depthAttachment{};
     depthAttachment.setFormat(findDepthFormat())
                    .setSamples(vk::SampleCountFlagBits::e1)
                    .setLoadOp(vk::AttachmentLoadOp::eClear)
@@ -728,7 +733,8 @@ void VulkanContext::createRenderPass()
                    .setStencilStoreOp(vk::AttachmentStoreOp::eDontCare)
                    .setInitialLayout(vk::ImageLayout::eUndefined)
                    .setFinalLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
-    vk::AttachmentReference depthAttachmentRef = {};
+
+    vk::AttachmentReference depthAttachmentRef{};
     depthAttachmentRef.setAttachment(1).setLayout(vk::ImageLayout::eDepthStencilAttachmentOptimal);
 
     vk::SubpassDescription subpass;
@@ -752,8 +758,10 @@ void VulkanContext::createRenderPass()
                          vk::AccessFlagBits::eColorAttachmentWrite | vk::AccessFlagBits::eDepthStencilAttachmentWrite);
     std::array<vk::AttachmentDescription, 2> attachments = {colorAttachment, depthAttachment};
 
-    vk::RenderPassCreateInfo renderPassInfo;
-    renderPassInfo.setAttachments(attachments).setSubpasses(subpass).setDependencies(subpassDependency);
+    vk::RenderPassCreateInfo renderPassInfo{};
+    renderPassInfo.setAttachments(attachments)
+                  .setSubpasses(subpass)
+                  .setDependencies(subpassDependency);
 
     m_renderPass = device.createRenderPass(renderPassInfo);
     if (!m_renderPass)
@@ -1009,10 +1017,10 @@ void VulkanContext::initVulkan()
     createSwapchain();
 
     createRenderPass();
+    createCommandPool();
 
     createDescriptorSetLayout();
     createDescriptorPool();
-    createCommandPool();
 
     createGraphicsPipeline();
     createDepthResources();

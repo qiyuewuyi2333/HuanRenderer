@@ -47,8 +47,22 @@ Swapchain::Swapchain(const uint32_t width, const uint32_t height)
 
     m_swapchain = m_device.createSwapchainKHR(createInfo);
 
-    getImages();
-    createImageViews();
+    m_images = m_device.getSwapchainImagesKHR(m_swapchain);
+    m_imageViews.resize(m_images.size());
+    for (size_t i = 0; i < m_images.size(); i++)
+    {
+        vk::ImageViewCreateInfo imageViewCreateInfo = {};
+        imageViewCreateInfo.setImage(m_images[i])
+                           .setViewType(vk::ImageViewType::e2D) // 2D image
+                           .setFormat(m_info.format.format)
+                           .setComponents({
+                               vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
+                               vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity
+                           }) // set component mapping, you got color component from image, and swizzle it.
+                           .setSubresourceRange(
+                               {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
+        m_imageViews[i] = m_device.createImageView(imageViewCreateInfo);
+    }
 
     m_viewport = vk::Viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height), 0.0f, 1.0f);
     m_scissor = vk::Rect2D({0, 0}, m_info.extent);
@@ -62,7 +76,7 @@ Swapchain::~Swapchain()
 }
 
 vk::Result Swapchain::acquireNextImage(uint64_t timeOut, vk::Semaphore imageAvailableSemaphore,
-                                       vk::Fence inFlightFence, uint32_t& imageIndex)
+                                       vk::Fence inFlightFence, uint32_t& imageIndex) const
 {
     return m_device.acquireNextImageKHR(m_swapchain, timeOut, imageAvailableSemaphore, inFlightFence, &imageIndex);
 }
@@ -106,6 +120,7 @@ void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
         "SwapChain capabilities: minImageCount: {}, maxImageCount: {}, minImageExtent: {{{} {}}}, maxImageExtent: {{{} {}}}",
         capabilities.minImageCount, capabilities.maxImageCount, capabilities.minImageExtent.width,
         capabilities.minImageExtent.height, capabilities.maxImageExtent.width, capabilities.maxImageExtent.height)
+
     m_info.transform = capabilities.currentTransform;
     m_info.presentMode = vk::PresentModeKHR::eFifo;
     for (const auto& presentMode : physicalDevice.getSurfacePresentModesKHR(
@@ -119,27 +134,4 @@ void Swapchain::querySwapchainSupportInfo(uint32_t width, uint32_t height)
     }
 }
 
-void Swapchain::getImages()
-{
-    m_images = m_device.getSwapchainImagesKHR(m_swapchain);
-}
-
-void Swapchain::createImageViews()
-{
-    m_imageViews.resize(m_images.size());
-    for (size_t i = 0; i < m_images.size(); i++)
-    {
-        vk::ImageViewCreateInfo createInfo;
-        createInfo.setImage(m_images[i])
-                  .setViewType(vk::ImageViewType::e2D) // 2D image
-                  .setFormat(m_info.format.format)
-                  .setComponents({
-                      vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity,
-                      vk::ComponentSwizzle::eIdentity, vk::ComponentSwizzle::eIdentity
-                  }) // set component mapping, you got color component from image, and swizzle it.
-                  .setSubresourceRange(
-                      {vk::ImageAspectFlagBits::eColor, 0, 1, 0, 1});
-        m_imageViews[i] = m_device.createImageView(createInfo);
-    }
-}
 }
