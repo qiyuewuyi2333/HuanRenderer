@@ -1048,8 +1048,26 @@ void VulkanContext::initVulkan()
 
 void VulkanContext::mainLoop()
 {
+    long frameCount = 0;
+    double fps = 0.0f;
+    double deltaTime = 0.0f;
+    double lastTime = glfwGetTime();
+    double currentTime = glfwGetTime();
     while (!glfwWindowShouldClose(window))
     {
+        frameCount++;
+        currentTime = glfwGetTime();
+
+        if (deltaTime >= 1.0f) { // 每秒更新一次 FPS
+            fps = static_cast<double>(frameCount) / deltaTime;
+            frameCount = 0;
+            lastTime = currentTime;
+
+            std::string title = std::format("My Vulkan App - FPS: {}", fps) ;
+            // snprintf(title, sizeof(title), , fps);
+            glfwSetWindowTitle(window, title.c_str());
+        }
+        deltaTime = currentTime - lastTime;
         drawFrame();
         glfwPollEvents();
     }

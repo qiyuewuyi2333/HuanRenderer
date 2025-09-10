@@ -43,6 +43,11 @@ public:
     vulkan::Buffer createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
 
 #pragma endregion
+#pragma region 创建DeviceDedicateBuffer
+    Scope<vulkan::Buffer> createDeviceDedicateBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size, void* srcData = nullptr);
+    template <class T>
+    vulkan::Buffer createDeviceDedicateBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData);
+#pragma endregion
 #pragma endregion
 
 #pragma region Image
@@ -133,6 +138,12 @@ template <class T>
 vulkan::Buffer ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData)
 {
     return createDeviceLocalBuffer(usage, srcData.size() * sizeof(T), &srcData);
+}
+
+template <class T>
+vulkan::Buffer ResourceSystem::createDeviceDedicateBuffer(vk::BufferUsageFlags usage, const vk::ArrayProxy<T>& srcData)
+{
+    return createDeviceDedicateBuffer(usage, srcData.size() * sizeof(T), &srcData);
 }
 
 template <typename Func>

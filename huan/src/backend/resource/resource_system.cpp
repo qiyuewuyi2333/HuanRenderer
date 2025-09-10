@@ -54,6 +54,34 @@ Scope<vulkan::Buffer> ResourceSystem::createDeviceLocalBuffer(vk::BufferUsageFla
     return deviceBuffer;
 }
 
+Scope<vulkan::Buffer> ResourceSystem::createDeviceDedicateBuffer(vk::BufferUsageFlags usage, vk::DeviceSize size,
+                                                                 void* srcData)
+{
+    // 创建 device local buffer
+    vulkan::BufferBuilder builder(allocatorHandle, size);
+    builder.setVmaFlags(VMA_ALLOCATION_CREATE_DEDICATED_MEMORY_BIT)
+           .setVmaUsage(VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE)
+           .setUsage(usage | vk::BufferUsageFlagBits::eTransferDst);
+
+    auto deviceBuffer = builder.buildScope(deviceHandle);
+
+    // 如果有源数据，通过 staging buffer 传输
+    if (srcData != nullptr)
+    {
+        executeImmediateTransfer([&](vk::CommandBuffer cmd) {
+            // 创建临时 staging buffer
+            auto stagingBuffer = createStagingBuffer(usage, size, srcData);
+
+            // 记录复制命令
+            vk::BufferCopy copyRegion{};
+            copyRegion.size = size;
+            cmd.copyBuffer(stagingBuffer->getHandle(), deviceBuffer->getHandle(), copyRegion);
+            m_deletingBufferQueue.emplace(std::move(stagingBuffer));
+        });
+    }
+    return deviceBuffer;
+}
+
 Scope<vulkan::Image> ResourceSystem::createImage(vk::ImageType imageType, const vk::Extent3D& extent,
                                                  uint32_t mipLevels,
                                                  vk::Format format, vk::ImageTiling tiling, vk::ImageUsageFlags usage,
@@ -167,8 +195,8 @@ uint32_t ResourceSystem::findRequiredMemoryTypeIndex(uint32_t typeFilter, vk::Me
  * @param mipLevels 生成的MipLevel的级数
  */
 vulkan::ImageView* ResourceSystem::createImageView(vulkan::Image& image, vk::ImageViewType imageViewType,
-                                                  vk::Format format,
-                                                  uint32_t mipLevels)
+                                                   vk::Format format,
+                                                   uint32_t mipLevels)
 {
     return new vulkan::ImageView{image, imageViewType, format, mipLevels};
 }
